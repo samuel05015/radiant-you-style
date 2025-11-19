@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { Camera, Sparkles, ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { analyzeFaceImage } from "@/lib/ai-service";
 import { useUserStore } from "@/lib/user-store";
 import { useToast } from "@/hooks/use-toast";
@@ -13,6 +15,8 @@ const Onboarding = () => {
   const setProfile = useUserStore((state) => state.setProfile);
   
   const [step, setStep] = useState(1);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<{
@@ -76,7 +80,30 @@ const Onboarding = () => {
     }
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
+    // Validar nome e email no step 1
+    if (step === 1) {
+      if (!name.trim()) {
+        toast({
+          title: "Nome obrigatório",
+          description: "Por favor, digite seu nome",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!email.trim() || !email.includes("@")) {
+        toast({
+          title: "Email inválido",
+          description: "Por favor, digite um email válido",
+          variant: "destructive",
+        });
+        return;
+      }
+      setStep(2);
+      return;
+    }
+    
+    // Analisar foto no step 2
     if (step === 2 && selectedImage && !analysisResult) {
       handleAnalyzeImage();
       return;
@@ -87,9 +114,9 @@ const Onboarding = () => {
     } else {
       // Salvar perfil e ir para dashboard
       if (analysisResult) {
-        setProfile({
-          name: "Bella",
-          email: "bella@glowup.com",
+        await setProfile({
+          name: name.trim(),
+          email: email.trim().toLowerCase(),
           faceShape: analysisResult.faceShape as any,
           skinTone: analysisResult.skinTone as any,
           photoUrl: selectedImage || undefined,
@@ -100,6 +127,11 @@ const Onboarding = () => {
             checkIns: 0,
             looksCreated: 0,
           },
+        });
+        
+        toast({
+          title: "Perfil criado com sucesso! 🎉",
+          description: "Bem-vinda ao Glow UP!",
         });
       }
       
@@ -138,24 +170,64 @@ const Onboarding = () => {
             />
           ))}
         </div>
+        
+        <div className="text-center text-sm text-muted-foreground">
+          Passo {step} de 3
+        </div>
 
         {/* Content */}
         <Card className="p-8 shadow-medium backdrop-blur-sm bg-card/80 border-primary/20">
           {step === 1 && (
-            <div className="space-y-6 text-center">
-              <h2 className="text-2xl font-semibold">Vamos começar!</h2>
-              <p className="text-muted-foreground">
-                O Glow UP vai te ajudar a descobrir o que mais valoriza sua beleza natural
-              </p>
+            <div className="space-y-6">
+              <div className="text-center space-y-2">
+                <h2 className="text-2xl font-semibold">Vamos começar!</h2>
+                <p className="text-muted-foreground">
+                  Primeiro, conte-nos sobre você
+                </p>
+              </div>
+              
               <div className="space-y-4">
-                <div className="p-4 rounded-lg bg-primary/10 border border-primary/20">
-                  <p className="text-sm">✨ Análise de tom de pele</p>
+                <div className="space-y-2">
+                  <label htmlFor="name" className="text-sm font-medium">
+                    Seu nome
+                  </label>
+                  <input
+                    id="name"
+                    type="text"
+                    placeholder="Ex: Maria Silva"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full px-4 py-3 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary transition-all"
+                  />
                 </div>
-                <div className="p-4 rounded-lg bg-secondary/10 border border-secondary/20">
-                  <p className="text-sm">💇‍♀️ Sugestões personalizadas</p>
+                
+                <div className="space-y-2">
+                  <label htmlFor="email" className="text-sm font-medium">
+                    Seu email
+                  </label>
+                  <input
+                    id="email"
+                    type="email"
+                    placeholder="seu@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full px-4 py-3 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary transition-all"
+                  />
                 </div>
-                <div className="p-4 rounded-lg bg-accent/10 border border-accent/20">
-                  <p className="text-sm">👗 Looks que favorecem você</p>
+              </div>
+              
+              <div className="space-y-3 pt-4">
+                <p className="text-sm font-medium text-center">O que você vai ganhar:</p>
+                <div className="space-y-2">
+                  <div className="p-3 rounded-lg bg-primary/10 border border-primary/20 text-sm">
+                    ✨ Análise de tom de pele com IA
+                  </div>
+                  <div className="p-3 rounded-lg bg-secondary/10 border border-secondary/20 text-sm">
+                    💇‍♀️ Sugestões personalizadas de cabelo
+                  </div>
+                  <div className="p-3 rounded-lg bg-accent/10 border border-accent/20 text-sm">
+                    👗 Looks que favorecem você
+                  </div>
                 </div>
               </div>
             </div>
@@ -253,12 +325,12 @@ const Onboarding = () => {
             onClick={handleNext}
             className="w-full mt-6 bg-gradient-primary hover:opacity-90 transition-opacity shadow-medium"
             size="lg"
-            disabled={(step === 2 && !selectedImage) || isAnalyzing}
+            disabled={(step === 1 && (!name.trim() || !email.trim())) || (step === 2 && !selectedImage) || isAnalyzing}
           >
             {isAnalyzing ? (
               <>
                 <Loader2 className="mr-2 w-5 h-5 animate-spin" />
-                Analisando...
+                Analisando com IA...
               </>
             ) : step === 3 ? (
               <>
@@ -267,7 +339,7 @@ const Onboarding = () => {
               </>
             ) : (
               <>
-                {step === 2 && selectedImage ? "Analisar foto" : "Continuar"}
+                {step === 2 && selectedImage ? "Analisar com Gemini AI" : "Continuar"}
                 <ArrowRight className="ml-2 w-5 h-5" />
               </>
             )}

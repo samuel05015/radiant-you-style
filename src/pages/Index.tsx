@@ -1,9 +1,19 @@
 import { useNavigate } from "react-router-dom";
+import { useEffect } from "react";
 import { Sparkles, Heart, Scissors, Shirt, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useUserStore } from "@/lib/user-store";
 
 const Index = () => {
   const navigate = useNavigate();
+  const profile = useUserStore((state) => state.profile);
+  
+  // Se já tiver perfil, redireciona para dashboard
+  useEffect(() => {
+    if (profile) {
+      navigate("/dashboard");
+    }
+  }, [profile, navigate]);
 
   return (
     <div className="min-h-screen gradient-glow flex flex-col items-center justify-center p-6 overflow-hidden relative">

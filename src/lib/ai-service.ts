@@ -4,6 +4,8 @@ const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
 if (!API_KEY) {
   console.warn("⚠️ VITE_GEMINI_API_KEY não configurada. Usando modo demo.");
+} else {
+  console.log("✅ Google Gemini AI configurado e pronto!");
 }
 
 const genAI = API_KEY ? new GoogleGenerativeAI(API_KEY) : null;
@@ -40,10 +42,12 @@ export interface OutfitRecommendation {
 export async function analyzeFaceImage(imageData: string): Promise<FaceAnalysisResult> {
   if (!genAI) {
     // Modo demo - retorna dados simulados
+    console.warn("🔄 Usando modo demo (API não configurada)");
     return simulateFaceAnalysis();
   }
 
   try {
+    console.log("🤖 Iniciando análise com Google Gemini AI...");
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     const prompt = `Analise esta foto de rosto e forneça as seguintes informações em formato JSON:
@@ -84,16 +88,19 @@ Responda APENAS com um JSON válido no formato:
     const response = await result.response;
     const text = response.text();
     
+    console.log("📊 Resposta da IA recebida");
+    
     // Extrair JSON da resposta
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const analysis = JSON.parse(jsonMatch[0]);
+      console.log("✅ Análise realizada com sucesso via Gemini AI:", analysis);
       return analysis;
     }
 
     throw new Error("Formato de resposta inválido");
   } catch (error) {
-    console.error("Erro na análise de rosto:", error);
+    console.error("❌ Erro na análise com Gemini, usando fallback:", error);
     return simulateFaceAnalysis();
   }
 }

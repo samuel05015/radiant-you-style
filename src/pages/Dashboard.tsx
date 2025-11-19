@@ -1,13 +1,22 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Sparkles, Heart, Scissors, Shirt } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import BottomNav from "@/components/BottomNav";
+import { useUserStore } from "@/lib/user-store";
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("home");
+  const profile = useUserStore((state) => state.profile);
+  
+  // Redirecionar para onboarding se não tiver perfil
+  useEffect(() => {
+    if (!profile) {
+      navigate("/onboarding");
+    }
+  }, [profile, navigate]);
 
   return (
     <div className="min-h-screen bg-gradient-glow pb-24">
@@ -16,10 +25,20 @@ const Dashboard = () => {
         <div className="max-w-md mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold">Olá, Bella! ✨</h1>
+              <h1 className="text-2xl font-bold">Olá, {profile?.name || "Bella"}! ✨</h1>
               <p className="text-sm text-muted-foreground">Como você está hoje?</p>
             </div>
-            <div className="w-12 h-12 rounded-full bg-gradient-primary shadow-soft" />
+            {profile?.photoUrl ? (
+              <img
+                src={profile.photoUrl}
+                alt="Profile"
+                className="w-12 h-12 rounded-full object-cover shadow-soft border-2 border-primary/20"
+              />
+            ) : (
+              <div className="w-12 h-12 rounded-full bg-gradient-primary shadow-soft flex items-center justify-center text-primary-foreground font-semibold">
+                {profile?.name?.charAt(0).toUpperCase() || "B"}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -30,19 +49,19 @@ const Dashboard = () => {
         <div className="grid grid-cols-3 gap-3">
           <Card className="p-4 text-center shadow-soft border-primary/20 bg-card/50 backdrop-blur-sm">
             <div className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-              7
+              {profile?.stats.glowDays || 0}
             </div>
             <p className="text-xs text-muted-foreground mt-1">Dias de Glow</p>
           </Card>
           <Card className="p-4 text-center shadow-soft border-secondary/20 bg-card/50 backdrop-blur-sm">
             <div className="text-2xl font-bold bg-gradient-to-r from-secondary to-accent bg-clip-text text-transparent">
-              15
+              {profile?.stats.checkIns || 0}
             </div>
             <p className="text-xs text-muted-foreground mt-1">Check-ins</p>
           </Card>
           <Card className="p-4 text-center shadow-soft border-accent/20 bg-card/50 backdrop-blur-sm">
-            <div className="text-2xl font-bold text-accent-foreground">12</div>
-            <p className="text-xs text-muted-foreground mt-1">Peças</p>
+            <div className="text-2xl font-bold text-accent-foreground">{profile?.stats.looksCreated || 0}</div>
+            <p className="text-xs text-muted-foreground mt-1">Looks criados</p>
           </Card>
         </div>
 
@@ -79,10 +98,9 @@ const Dashboard = () => {
               <div className="flex-1">
                 <h3 className="font-semibold">Glow Skin</h3>
                 <p className="text-sm text-muted-foreground">
-                  Routine de hoje: 2 de 3 ✓
+                  {profile?.skinTone ? `Tom: ${profile.skinTone}` : "Defina sua rotina"}
                 </p>
               </div>
-              <div className="w-2 h-2 rounded-full bg-primary animate-glow-pulse" />
             </div>
           </Card>
 
@@ -94,7 +112,7 @@ const Dashboard = () => {
               <div className="flex-1">
                 <h3 className="font-semibold">Glow Hair</h3>
                 <p className="text-sm text-muted-foreground">
-                  Check-in de hoje pendente
+                  {profile?.faceShape ? `Rosto: ${profile.faceShape}` : "Faça seu check-in"}
                 </p>
               </div>
             </div>
@@ -108,7 +126,7 @@ const Dashboard = () => {
               <div className="flex-1">
                 <h3 className="font-semibold">Glow Style</h3>
                 <p className="text-sm text-muted-foreground">
-                  12 peças no closet
+                  Organize seu closet
                 </p>
               </div>
             </div>
