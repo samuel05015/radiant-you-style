@@ -23,6 +23,7 @@ export interface Database {
           updated_at: string;
           email: string;
           name: string;
+          gender: string | null;
           face_shape: string | null;
           skin_tone: string | null;
           photo_url: string | null;
@@ -37,6 +38,7 @@ export interface Database {
           updated_at?: string;
           email: string;
           name: string;
+          gender?: string | null;
           face_shape?: string | null;
           skin_tone?: string | null;
           photo_url?: string | null;
@@ -50,6 +52,7 @@ export interface Database {
           updated_at?: string;
           email?: string;
           name?: string;
+          gender?: string | null;
           face_shape?: string | null;
           skin_tone?: string | null;
           photo_url?: string | null;

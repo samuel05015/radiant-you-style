@@ -6,6 +6,7 @@ export interface UserProfile {
   id?: string;
   name: string;
   email: string;
+  gender?: "masculino" | "feminino";
   faceShape?: "oval" | "redondo" | "quadrado" | "coração" | "alongado";
   skinTone?: "primavera" | "verão" | "outono" | "inverno";
   photoUrl?: string;

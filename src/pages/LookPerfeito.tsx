@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Sparkles, Heart, Shirt, Palette, ArrowLeft, RefreshCw, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -6,7 +6,8 @@ import { useNavigate } from "react-router-dom";
 import { generateOutfit, OutfitRecommendation } from "@/lib/ai-service";
 import { useUserStore } from "@/lib/user-store";
 import { useToast } from "@/hooks/use-toast";
-import { saveOutfit } from "@/lib/database";
+import { saveOutfit, getClosetItems } from "@/lib/database";
+import { supabase } from "@/lib/supabase";
 
 const LookPerfeito = () => {
   const navigate = useNavigate();
@@ -17,32 +18,98 @@ const LookPerfeito = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generated, setGenerated] = useState(false);
   const [outfit, setOutfit] = useState<OutfitRecommendation | null>(null);
+  const [closetItemsCount, setClosetItemsCount] = useState(0);
+  const [closetItems, setClosetItems] = useState<any[]>([]);
+
+  // Carregar peças do closet
+  useEffect(() => {
+    const loadClosetItems = async () => {
+      if (!profile?.email) return;
+      try {
+        const items = await getClosetItems(profile.email);
+        setClosetItems(items);
+        setClosetItemsCount(items.length);
+        console.log("👔 Peças do closet carregadas:", items);
+      } catch (error) {
+        console.error("Erro ao carregar closet:", error);
+      }
+    };
+    loadClosetItems();
+  }, [profile?.email]);
 
   const handleGenerate = async () => {
     if (!profile?.email) return;
+    
+    // Verificar se tem peças no closet
+    if (closetItems.length === 0) {
+      toast({
+        title: "Closet vazio",
+        description: "Adicione peças ao seu closet em Glow Style antes de criar looks!",
+        variant: "destructive",
+      });
+      navigate("/style");
+      return;
+    }
     
     setIsGenerating(true);
     
     try {
       const skinTone = profile?.skinTone || "primavera";
       const faceShape = profile?.faceShape || "oval";
+      const gender = profile?.gender || "feminino";
       
-      const result = await generateOutfit(skinTone, faceShape, "casual");
+      console.log("═══════════════════════════════════");
+      console.log("🎨 GERANDO OUTFIT");
+      console.log("═══════════════════════════════════");
+      console.log("📊 Dados do perfil:");
+      console.log("  - skinTone:", skinTone);
+      console.log("  - faceShape:", faceShape);
+      console.log("  - gender:", gender);
+      console.log("");
+      console.log("👔 Peças do closet (" + closetItems.length + "):");
+      closetItems.forEach((item, idx) => {
+        console.log(`  ${idx + 1}. ${item.category} - ${item.color}`);
+      });
+      console.log("═══════════════════════════════════");
+      
+      // Passar as peças do closet para a IA
+      const result = await generateOutfit(skinTone, faceShape, gender, "casual", undefined, closetItems);
+      
+      console.log("═══════════════════════════════════");
+      console.log("✅ RESULTADO DA IA:");
+      console.log("═══════════════════════════════════");
+      console.log("Top:", result.outfit.top);
+      console.log("Bottom:", result.outfit.bottom);
+      console.log("Shoes:", result.outfit.shoes);
+      console.log("Reasoning:", result.reasoning);
+      console.log("═══════════════════════════════════");
+      
       setOutfit(result);
       setGenerated(true);
       
       // Salvar outfit no Supabase
       try {
-        await saveOutfit({
-          user_email: profile.email,
-          occasion: result.occasion,
-          top: result.top,
-          bottom: result.bottom,
-          shoes: result.shoes,
-          accessories: result.accessories,
-          colors: result.colors.join(', '),
-          style_notes: result.styleNotes,
-        });
+        // Buscar profile_id
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('email', profile.email)
+          .single();
+
+        if (profileData) {
+          await saveOutfit({
+            profile_id: profileData.id,
+            occasion: result.occasion,
+            top: result.outfit.top,
+            bottom: result.outfit.bottom,
+            shoes: result.outfit.shoes,
+            accessories: result.outfit.accessories,
+            makeup: result.makeup,
+            hair: result.hair,
+            reasoning: result.reasoning,
+          });
+          console.log("💾 Outfit salvo no banco de dados");
+        }
       } catch (dbError) {
         console.error("Erro ao salvar outfit:", dbError);
         // Continua mesmo se falhar salvar no banco
@@ -107,8 +174,10 @@ const LookPerfeito = () => {
               <div className="space-y-2">
                 <h2 className="text-2xl font-bold">Crie seu look perfeito!</h2>
                 <p className="text-muted-foreground">
-                  Nossa IA vai cruzar seu tom de pele, formato do rosto, humor e peças do
-                  closet para criar o look ideal
+                  {closetItemsCount > 0 
+                    ? `Nossa IA vai combinar suas ${closetItemsCount} ${closetItemsCount === 1 ? 'peça' : 'peças'} do closet com base no seu tom de pele e formato de rosto`
+                    : "Adicione peças ao seu closet em Glow Style para criar looks personalizados!"
+                  }
                 </p>
               </div>
             </Card>
@@ -149,34 +218,54 @@ const LookPerfeito = () => {
                 </div>
               </Card>
 
-              <Card className="p-4 shadow-soft border-accent/20 bg-accent/5 backdrop-blur-sm">
+              <Card className={`p-4 shadow-soft border-accent/20 ${closetItemsCount === 0 ? 'bg-red-500/10' : 'bg-accent/5'} backdrop-blur-sm`}>
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center">
                     <Shirt className="w-5 h-5 text-accent-foreground" />
                   </div>
                   <div className="flex-1">
-                    <p className="font-medium">Closet digital</p>
-                    <p className="text-sm text-muted-foreground">12 peças disponíveis</p>
+                    <p className="font-medium">Suas peças do closet</p>
+                    <p className="text-sm text-muted-foreground">
+                      {closetItemsCount === 0 
+                        ? "⚠️ Adicione peças primeiro!" 
+                        : `✅ ${closetItemsCount} ${closetItemsCount === 1 ? 'peça' : 'peças'} cadastrada${closetItemsCount === 1 ? '' : 's'}`
+                      }
+                    </p>
                   </div>
                 </div>
+                {closetItemsCount === 0 && (
+                  <Button
+                    onClick={() => navigate("/style")}
+                    variant="outline"
+                    size="sm"
+                    className="w-full mt-3"
+                  >
+                    Ir para Glow Style →
+                  </Button>
+                )}
               </Card>
             </div>
 
             <Button
               onClick={handleGenerate}
-              disabled={isGenerating}
+              disabled={isGenerating || closetItemsCount === 0}
               className="w-full bg-gradient-primary hover:opacity-90 transition-opacity shadow-medium"
               size="lg"
             >
               {isGenerating ? (
                 <>
                   <RefreshCw className="mr-2 w-5 h-5 animate-spin" />
-                  Criando seu look...
+                  IA montando seu look...
+                </>
+              ) : closetItemsCount === 0 ? (
+                <>
+                  <Shirt className="mr-2 w-5 h-5" />
+                  Adicione peças primeiro
                 </>
               ) : (
                 <>
                   <Sparkles className="mr-2 w-5 h-5" />
-                  Gerar Look Perfeito
+                  Montar look com minhas {closetItemsCount} {closetItemsCount === 1 ? 'peça' : 'peças'}
                 </>
               )}
             </Button>
@@ -191,7 +280,10 @@ const LookPerfeito = () => {
                 <div className="text-center space-y-2">
                   <h2 className="text-2xl font-bold">Seu look de hoje ✨</h2>
                   <p className="text-sm text-muted-foreground">
-                    Combinação perfeita para você brilhar!
+                    {closetItemsCount > 0 
+                      ? `Montado com suas ${closetItemsCount} ${closetItemsCount === 1 ? 'peça' : 'peças'} do closet`
+                      : "Combinação perfeita para você brilhar!"
+                    }
                   </p>
                 </div>
 

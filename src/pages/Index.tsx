@@ -73,12 +73,21 @@ const Index = () => {
         {/* CTA */}
         <div className="space-y-3 animate-fade-in" style={{ animationDelay: "0.4s" }}>
           <Button
-            onClick={() => navigate("/onboarding")}
+            onClick={() => navigate("/register")}
             className="w-full bg-gradient-primary hover:opacity-90 transition-opacity shadow-medium text-lg py-6"
             size="lg"
           >
             Começar agora
             <ArrowRight className="ml-2 w-5 h-5" />
+          </Button>
+          
+          <Button
+            onClick={() => navigate("/login")}
+            variant="outline"
+            className="w-full border-primary/20 hover:bg-primary/5 text-lg py-6"
+            size="lg"
+          >
+            Já tenho uma conta
           </Button>
           
           <p className="text-center text-sm text-muted-foreground">

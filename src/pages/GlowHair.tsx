@@ -19,11 +19,10 @@ const GlowHair = () => {
   const [activeTab, setActiveTab] = useState("hair");
   const [hairCondition, setHairCondition] = useState("");
   const [showRecommendation, setShowRecommendation] = useState(false);
-  const [selectedFaceShape, setSelectedFaceShape] = useState(profile?.faceShape || "oval");
   const [isLoadingRecommendation, setIsLoadingRecommendation] = useState(false);
   const [aiRecommendation, setAiRecommendation] = useState<HairRecommendation | null>(null);
 
-  // Formato do rosto do usuário (normalmente viria do perfil/onboarding)
+  // Formato do rosto do usuário (detectado pela IA no onboarding)
   const userFaceShape = profile?.faceShape || "oval";
 
   const conditions = [
@@ -172,15 +171,7 @@ const GlowHair = () => {
     }
   };
 
-  const currentFaceShape = haircutRecommendations[selectedFaceShape as keyof typeof haircutRecommendations];
-
-  const faceShapeOptions = [
-    { value: "oval", label: "Oval", emoji: "🥚" },
-    { value: "redondo", label: "Redondo", emoji: "⭕" },
-    { value: "quadrado", label: "Quadrado", emoji: "🔲" },
-    { value: "coração", label: "Coração", emoji: "💝" },
-    { value: "alongado", label: "Alongado", emoji: "📏" },
-  ];
+  const currentFaceShape = haircutRecommendations[userFaceShape as keyof typeof haircutRecommendations];
 
   const handleSubmit = async () => {
     if (!hairCondition || !profile?.email) return;
@@ -190,7 +181,8 @@ const GlowHair = () => {
     try {
       const result = await getHairRecommendations(
         hairCondition,
-        userFaceShape
+        userFaceShape,
+        profile?.gender || "feminino"
       );
       
       setAiRecommendation(result);
@@ -301,7 +293,7 @@ const GlowHair = () => {
                   <div className="text-center space-y-2">
                     <h2 className="text-xl font-semibold">Como está seu cabelo hoje?</h2>
                     <p className="text-sm text-muted-foreground">
-                      Vamos personalizar suas dicas
+                      Nossa IA vai recomendar cuidados e cortes ideais para seu rosto <strong>{userFaceShape}</strong> {profile?.gender === "masculino" ? "👨" : "👩"}
                     </p>
                   </div>
 
@@ -356,7 +348,12 @@ const GlowHair = () => {
                       <div className="w-12 h-12 rounded-full bg-gradient-to-r from-secondary to-accent flex items-center justify-center shadow-medium">
                         <Sparkles className="w-6 h-6 text-secondary-foreground" />
                       </div>
-                      <h3 className="text-xl font-semibold">Recomendações para você</h3>
+                      <div className="flex-1">
+                        <h3 className="text-xl font-semibold">Recomendações IA</h3>
+                        <p className="text-xs text-muted-foreground">
+                          🤖 Gemini AI • Rosto {userFaceShape} • {profile?.gender === "masculino" ? "👨" : "👩"}
+                        </p>
+                      </div>
                     </div>
 
                     <div className="space-y-3">
@@ -383,10 +380,18 @@ const GlowHair = () => {
                     <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center flex-shrink-0">
                       <Scissors className="w-5 h-5 text-accent-foreground" />
                     </div>
-                    <div className="space-y-2">
-                      <h4 className="font-semibold">Dicas de styling</h4>
+                    <div className="space-y-2 flex-1">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-semibold">Cortes ideais para seu rosto</h4>
+                        <span className="text-xs bg-accent/20 px-2 py-1 rounded-full">
+                          {userFaceShape}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        Personalizados para formato de rosto {userFaceShape} e perfil {profile?.gender === "masculino" ? "masculino" : "feminino"}
+                      </p>
                       {recommendation.stylingTips.map((tip, index) => (
-                        <p key={index} className="text-sm text-muted-foreground">• {tip}</p>
+                        <p key={index} className="text-sm">• {tip}</p>
                       ))}
                     </div>
                   </div>
@@ -428,48 +433,25 @@ const GlowHair = () => {
 
           {/* Tab: Cortes para Você */}
           <TabsContent value="cortes" className="space-y-6">
-            {/* Seletor de formato de rosto */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between px-1">
-                <h3 className="text-sm font-medium text-muted-foreground">Selecione o formato do rosto:</h3>
-                {selectedFaceShape === userFaceShape && (
-                  <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
-                    Seu formato
-                  </span>
-                )}
-              </div>
-              
-              <div className="grid grid-cols-5 gap-2">
-                {faceShapeOptions.map((option) => (
-                  <button
-                    key={option.value}
-                    onClick={() => setSelectedFaceShape(option.value)}
-                    className={`p-3 rounded-xl border-2 transition-all text-center ${
-                      selectedFaceShape === option.value
-                        ? "border-primary bg-primary/10 shadow-soft"
-                        : "border-border hover:border-primary/50 hover:bg-primary/5"
-                    }`}
-                  >
-                    <div className="text-2xl mb-1">{option.emoji}</div>
-                    <p className="text-xs font-medium">{option.label}</p>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Info do formato do rosto */}
+            {/* Info do formato do rosto detectado pela IA */}
             <Card className="p-6 shadow-medium border-primary/20 bg-gradient-primary/5 backdrop-blur-sm">
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-full bg-gradient-primary flex items-center justify-center shadow-soft">
-                    <Scissors className="w-6 h-6 text-primary-foreground" />
+                    <Sparkles className="w-6 h-6 text-primary-foreground" />
                   </div>
-                  <div>
+                  <div className="flex-1">
                     <h3 className="text-lg font-semibold">Rosto {currentFaceShape.shape}</h3>
                     <p className="text-xs text-muted-foreground">
-                      {selectedFaceShape === userFaceShape ? "Seu formato de rosto" : "Explorando outros formatos"}
+                      Detectado automaticamente pela IA ✨
                     </p>
                   </div>
+                  {profile?.analysisConfidence && (
+                    <div className="text-right">
+                      <p className="text-sm font-medium text-primary">{profile.analysisConfidence}%</p>
+                      <p className="text-xs text-muted-foreground">precisão</p>
+                    </div>
+                  )}
                 </div>
                 <p className="text-sm text-muted-foreground">
                   {currentFaceShape.description}

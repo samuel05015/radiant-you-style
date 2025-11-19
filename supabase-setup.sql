@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS profiles (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
   email TEXT UNIQUE NOT NULL,
   name TEXT NOT NULL,
+  gender TEXT CHECK (gender IN ('masculino', 'feminino')),
   face_shape TEXT,
   skin_tone TEXT,
   photo_url TEXT,

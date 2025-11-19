@@ -9,14 +9,38 @@ import { useUserStore } from "@/lib/user-store";
 const Dashboard = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("home");
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasChecked, setHasChecked] = useState(false);
   const profile = useUserStore((state) => state.profile);
   
-  // Redirecionar para onboarding se não tiver perfil
+  // Redirecionar para login se não tiver perfil (após verificação inicial)
   useEffect(() => {
-    if (!profile) {
-      navigate("/onboarding");
-    }
-  }, [profile, navigate]);
+    if (hasChecked) return;
+    
+    // Dar tempo para o perfil carregar do localStorage
+    const timer = setTimeout(() => {
+      setHasChecked(true);
+      if (!profile) {
+        navigate("/login", { replace: true });
+      } else {
+        setIsLoading(false);
+      }
+    }, 150);
+
+    return () => clearTimeout(timer);
+  }, [profile, navigate, hasChecked]);
+
+  // Mostrar loading enquanto verifica o perfil
+  if (isLoading || !profile) {
+    return (
+      <div className="min-h-screen bg-gradient-glow flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-glow pb-24">

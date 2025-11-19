@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Camera, Sparkles, ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -11,12 +11,18 @@ import { useToast } from "@/hooks/use-toast";
 
 const Onboarding = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const setProfile = useUserStore((state) => state.setProfile);
   
+  // Receber dados do registro se vier da página de register ou pegar do perfil existente
+  const registrationData = location.state as { name?: string; email?: string } | null;
+  const profile = useUserStore((state) => state.profile);
+  
   const [step, setStep] = useState(1);
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [name, setName] = useState(registrationData?.name || profile?.name || "");
+  const [email, setEmail] = useState(registrationData?.email || profile?.email || "");
+  const [gender, setGender] = useState<"masculino" | "feminino" | "">("");
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<{
@@ -25,6 +31,7 @@ const Onboarding = () => {
     confidence: number;
     analysis: string;
   } | null>(null);
+  const [hasAnalyzedOnce, setHasAnalyzedOnce] = useState(false);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -37,23 +44,30 @@ const Onboarding = () => {
     }
   };
 
-  const handleAnalyzeImage = async () => {
+  const handleAnalyzeImage = async (forceReanalyze = false) => {
     if (!selectedImage) return;
+
+    // Se já analisou e não é uma reanálise forçada, usar resultado anterior
+    if (hasAnalyzedOnce && analysisResult && !forceReanalyze) {
+      setStep(2);
+      return;
+    }
 
     setIsAnalyzing(true);
     
     try {
       const result = await analyzeFaceImage(selectedImage);
       setAnalysisResult(result);
+      setHasAnalyzedOnce(true);
       
       toast({
-        title: "Análise concluída! ✨",
+        title: forceReanalyze ? "Nova análise concluída! ✨" : "Análise concluída! ✨",
         description: `Detectamos rosto ${result.faceShape} com tom ${result.skinTone}`,
       });
       
       // Avançar para próximo passo
       setTimeout(() => {
-        setStep(3);
+        setStep(2);
       }, 1500);
       
     } catch (error) {
@@ -73,7 +87,7 @@ const Onboarding = () => {
       });
       
       setTimeout(() => {
-        setStep(3);
+        setStep(2);
       }, 1500);
     } finally {
       setIsAnalyzing(false);
@@ -81,42 +95,45 @@ const Onboarding = () => {
   };
 
   const handleNext = async () => {
-    // Validar nome e email no step 1
+    // No step 1, validar gênero e foto
     if (step === 1) {
-      if (!name.trim()) {
+      if (!gender) {
         toast({
-          title: "Nome obrigatório",
-          description: "Por favor, digite seu nome",
+          title: "Gênero obrigatório",
+          description: "Por favor, selecione seu gênero",
           variant: "destructive",
         });
         return;
       }
-      if (!email.trim() || !email.includes("@")) {
+      
+      if (!selectedImage) {
         toast({
-          title: "Email inválido",
-          description: "Por favor, digite um email válido",
+          title: "Foto obrigatória",
+          description: "Por favor, tire uma selfie para análise",
           variant: "destructive",
         });
         return;
       }
+      
+      // Se já temos foto mas não analisamos, analisar
+      if (!analysisResult) {
+        handleAnalyzeImage();
+        return;
+      }
+      
+      // Se já analisamos, ir para o próximo step
       setStep(2);
       return;
     }
     
-    // Analisar foto no step 2
-    if (step === 2 && selectedImage && !analysisResult) {
-      handleAnalyzeImage();
-      return;
-    }
-    
-    if (step < 3) {
-      setStep(step + 1);
-    } else {
+    // Step 2 = Confirmação e conclusão
+    if (step === 2) {
       // Salvar perfil e ir para dashboard
       if (analysisResult) {
         await setProfile({
           name: name.trim(),
           email: email.trim().toLowerCase(),
+          gender: gender,
           faceShape: analysisResult.faceShape as any,
           skinTone: analysisResult.skinTone as any,
           photoUrl: selectedImage || undefined,
@@ -131,11 +148,11 @@ const Onboarding = () => {
         
         toast({
           title: "Perfil criado com sucesso! 🎉",
-          description: "Bem-vinda ao Glow UP!",
+          description: `Bem-vindo${gender === "feminino" ? "a" : ""} ao Glow UP!`,
         });
       }
       
-      navigate("/dashboard");
+      navigate("/dashboard", { replace: true });
     }
   };
 
@@ -157,7 +174,7 @@ const Onboarding = () => {
 
         {/* Progress */}
         <div className="flex gap-2 justify-center">
-          {[1, 2, 3].map((i) => (
+          {[1, 2].map((i) => (
             <div
               key={i}
               className={`h-2 rounded-full transition-all duration-300 ${
@@ -172,73 +189,47 @@ const Onboarding = () => {
         </div>
         
         <div className="text-center text-sm text-muted-foreground">
-          Passo {step} de 3
+          Passo {step} de 2
         </div>
 
         {/* Content */}
         <Card className="p-8 shadow-medium backdrop-blur-sm bg-card/80 border-primary/20">
-          {step === 1 && (
+          {step === 1 && !gender && (
             <div className="space-y-6">
               <div className="text-center space-y-2">
-                <h2 className="text-2xl font-semibold">Vamos começar!</h2>
+                <h2 className="text-2xl font-semibold">Qual é o seu gênero?</h2>
                 <p className="text-muted-foreground">
-                  Primeiro, conte-nos sobre você
+                  Para recomendações personalizadas
                 </p>
               </div>
               
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label htmlFor="name" className="text-sm font-medium">
-                    Seu nome
-                  </label>
-                  <input
-                    id="name"
-                    type="text"
-                    placeholder="Ex: Maria Silva"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full px-4 py-3 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary transition-all"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <label htmlFor="email" className="text-sm font-medium">
-                    Seu email
-                  </label>
-                  <input
-                    id="email"
-                    type="email"
-                    placeholder="seu@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-4 py-3 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary transition-all"
-                  />
-                </div>
-              </div>
-              
-              <div className="space-y-3 pt-4">
-                <p className="text-sm font-medium text-center">O que você vai ganhar:</p>
-                <div className="space-y-2">
-                  <div className="p-3 rounded-lg bg-primary/10 border border-primary/20 text-sm">
-                    ✨ Análise de tom de pele com IA
-                  </div>
-                  <div className="p-3 rounded-lg bg-secondary/10 border border-secondary/20 text-sm">
-                    💇‍♀️ Sugestões personalizadas de cabelo
-                  </div>
-                  <div className="p-3 rounded-lg bg-accent/10 border border-accent/20 text-sm">
-                    👗 Looks que favorecem você
-                  </div>
-                </div>
+              <div className="grid grid-cols-2 gap-4">
+                <button
+                  type="button"
+                  onClick={() => setGender("masculino")}
+                  className="p-6 rounded-2xl border-2 border-border bg-background hover:bg-primary/5 hover:border-primary transition-all text-center space-y-3"
+                >
+                  <div className="text-5xl">👨</div>
+                  <div className="font-semibold">Masculino</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGender("feminino")}
+                  className="p-6 rounded-2xl border-2 border-border bg-background hover:bg-primary/5 hover:border-primary transition-all text-center space-y-3"
+                >
+                  <div className="text-5xl">👩</div>
+                  <div className="font-semibold">Feminino</div>
+                </button>
               </div>
             </div>
           )}
 
-          {step === 2 && (
+          {step === 1 && gender && (
             <div className="space-y-6">
               <div className="text-center space-y-2">
                 <h2 className="text-2xl font-semibold">Tire uma selfie</h2>
                 <p className="text-muted-foreground">
-                  Nossa IA vai analisar seu tom de pele e formato do rosto
+                  Nossa IA vai analisar seu tom de pele e formato do rosto automaticamente
                 </p>
               </div>
 
@@ -257,11 +248,25 @@ const Onboarding = () => {
                       className="w-full h-full object-cover"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-                    {!analysisResult && (
+                    {!analysisResult ? (
                       <div className="absolute bottom-4 left-4 right-4">
                         <p className="text-white text-sm text-center">
                           Foto pronta! Clique em continuar para analisar
                         </p>
+                      </div>
+                    ) : (
+                      <div className="absolute bottom-4 left-4 right-4">
+                        <Button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handleAnalyzeImage(true);
+                          }}
+                          variant="secondary"
+                          size="sm"
+                          className="w-full bg-white/90 hover:bg-white text-black"
+                        >
+                          🔄 Refazer análise
+                        </Button>
                       </div>
                     )}
                   </div>
@@ -282,7 +287,7 @@ const Onboarding = () => {
             </div>
           )}
 
-          {step === 3 && analysisResult && (
+          {step === 2 && analysisResult && (
             <div className="space-y-6 text-center">
               <div className="w-20 h-20 mx-auto rounded-full bg-gradient-primary flex items-center justify-center shadow-glow animate-scale-in">
                 <Sparkles className="w-10 h-10 text-primary-foreground" />
@@ -317,6 +322,20 @@ const Onboarding = () => {
                     {analysisResult.faceShape === "alongado" && "Volume lateral harmoniza seu rosto"}
                   </p>
                 </div>
+                <Button
+                  onClick={() => {
+                    setStep(1);
+                    toast({
+                      title: "Voltando para refazer análise",
+                      description: "Clique no botão 'Refazer análise' na foto",
+                    });
+                  }}
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                >
+                  ⬅️ Não gostei, quero refazer
+                </Button>
               </div>
             </div>
           )}
@@ -325,7 +344,7 @@ const Onboarding = () => {
             onClick={handleNext}
             className="w-full mt-6 bg-gradient-primary hover:opacity-90 transition-opacity shadow-medium"
             size="lg"
-            disabled={(step === 1 && (!name.trim() || !email.trim())) || (step === 2 && !selectedImage) || isAnalyzing}
+            disabled={(step === 1 && (!name.trim() || !email.trim() || !gender)) || (step === 2 && !selectedImage) || isAnalyzing}
           >
             {isAnalyzing ? (
               <>

@@ -240,11 +240,23 @@ export async function saveClosetItem(item: ClosetItemInsert): Promise<ClosetItem
   return data;
 }
 
-export async function getClosetItems(profileId: string): Promise<ClosetItem[]> {
+export async function getClosetItems(userEmail: string): Promise<ClosetItem[]> {
+  // Primeiro, buscar o profile_id usando o email
+  const { data: profileData, error: profileError } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('email', userEmail)
+    .single();
+
+  if (profileError || !profileData) {
+    console.error('Error fetching profile:', profileError);
+    return [];
+  }
+
   const { data, error } = await supabase
     .from('closet_items')
     .select('*')
-    .eq('profile_id', profileId)
+    .eq('profile_id', profileData.id)
     .order('created_at', { ascending: false });
 
   if (error) {
