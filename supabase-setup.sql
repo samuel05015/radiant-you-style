@@ -104,8 +104,8 @@ CREATE POLICY "Enable insert access for all users" ON closet_items FOR INSERT WI
 CREATE POLICY "Enable delete access for all users" ON closet_items FOR DELETE USING (true);
 
 -- Storage bucket para imagens
-INSERT INTO storage.buckets (id, name, public) 
-VALUES ('images', 'images', true)
+INSERT INTO storage.buckets (id, name) 
+VALUES ('images', 'images')
 ON CONFLICT (id) DO NOTHING;
 
 -- Policy para upload de imagens
