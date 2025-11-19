@@ -1,10 +1,12 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Sparkles, Heart, Scissors, Shirt } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import BottomNav from "@/components/BottomNav";
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("home");
 
   return (
@@ -59,7 +61,7 @@ const Dashboard = () => {
                 </p>
               </div>
             </div>
-            <Button className="w-full bg-gradient-primary hover:opacity-90 transition-opacity shadow-medium">
+            <Button className="w-full bg-gradient-primary hover:opacity-90 transition-opacity shadow-medium" onClick={() => navigate("/look-perfeito")}>
               Descobrir meu look ✨
             </Button>
           </div>
@@ -69,7 +71,7 @@ const Dashboard = () => {
         <div className="space-y-3">
           <h2 className="text-lg font-semibold px-1">Seus Cuidados</h2>
           
-          <Card className="p-5 shadow-soft hover:shadow-medium transition-all cursor-pointer border-primary/20 bg-card/50 backdrop-blur-sm">
+          <Card className="p-5 shadow-soft hover:shadow-medium transition-all cursor-pointer border-primary/20 bg-card/50 backdrop-blur-sm" onClick={() => navigate("/skin")}>
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center">
                 <Heart className="w-7 h-7 text-primary" />
@@ -84,7 +86,7 @@ const Dashboard = () => {
             </div>
           </Card>
 
-          <Card className="p-5 shadow-soft hover:shadow-medium transition-all cursor-pointer border-secondary/20 bg-card/50 backdrop-blur-sm">
+          <Card className="p-5 shadow-soft hover:shadow-medium transition-all cursor-pointer border-secondary/20 bg-card/50 backdrop-blur-sm" onClick={() => navigate("/hair")}>
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 rounded-2xl bg-secondary/10 flex items-center justify-center">
                 <Scissors className="w-7 h-7 text-secondary-foreground" />
@@ -98,7 +100,7 @@ const Dashboard = () => {
             </div>
           </Card>
 
-          <Card className="p-5 shadow-soft hover:shadow-medium transition-all cursor-pointer border-accent/20 bg-card/50 backdrop-blur-sm">
+          <Card className="p-5 shadow-soft hover:shadow-medium transition-all cursor-pointer border-accent/20 bg-card/50 backdrop-blur-sm" onClick={() => navigate("/style")}>
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 rounded-2xl bg-accent/10 flex items-center justify-center">
                 <Shirt className="w-7 h-7 text-accent-foreground" />

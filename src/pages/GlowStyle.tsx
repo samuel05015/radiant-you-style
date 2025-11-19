@@ -1,10 +1,12 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Shirt, Plus, Camera, Sparkles } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import BottomNav from "@/components/BottomNav";
 
 const GlowStyle = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("style");
   const [pieces, setPieces] = useState([
     { id: 1, image: null, category: "Blusa", color: "Rosa" },
@@ -92,7 +94,7 @@ const GlowStyle = () => {
                 </p>
               </div>
             </div>
-            <Button className="w-full bg-gradient-accent hover:opacity-90 transition-opacity shadow-medium" size="lg">
+            <Button className="w-full bg-gradient-accent hover:opacity-90 transition-opacity shadow-medium" size="lg" onClick={() => navigate("/look-perfeito")}>
               Criar look perfeito ✨
             </Button>
           </div>

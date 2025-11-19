@@ -1,13 +1,26 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Camera, Sparkles, ArrowRight } from "lucide-react";
+import { Camera, Sparkles, ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { analyzeFaceImage } from "@/lib/ai-service";
+import { useUserStore } from "@/lib/user-store";
+import { useToast } from "@/hooks/use-toast";
 
 const Onboarding = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const setProfile = useUserStore((state) => state.setProfile);
+  
   const [step, setStep] = useState(1);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<{
+    faceShape: string;
+    skinTone: string;
+    confidence: number;
+    analysis: string;
+  } | null>(null);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -20,10 +33,76 @@ const Onboarding = () => {
     }
   };
 
+  const handleAnalyzeImage = async () => {
+    if (!selectedImage) return;
+
+    setIsAnalyzing(true);
+    
+    try {
+      const result = await analyzeFaceImage(selectedImage);
+      setAnalysisResult(result);
+      
+      toast({
+        title: "Análise concluída! ✨",
+        description: `Detectamos rosto ${result.faceShape} com tom ${result.skinTone}`,
+      });
+      
+      // Avançar para próximo passo
+      setTimeout(() => {
+        setStep(3);
+      }, 1500);
+      
+    } catch (error) {
+      console.error("Erro na análise:", error);
+      toast({
+        title: "Erro na análise",
+        description: "Vamos usar uma análise padrão. Você pode refazer depois.",
+        variant: "destructive",
+      });
+      
+      // Usar dados padrão
+      setAnalysisResult({
+        faceShape: "oval",
+        skinTone: "primavera",
+        confidence: 75,
+        analysis: "Análise em modo demo"
+      });
+      
+      setTimeout(() => {
+        setStep(3);
+      }, 1500);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
   const handleNext = () => {
+    if (step === 2 && selectedImage && !analysisResult) {
+      handleAnalyzeImage();
+      return;
+    }
+    
     if (step < 3) {
       setStep(step + 1);
     } else {
+      // Salvar perfil e ir para dashboard
+      if (analysisResult) {
+        setProfile({
+          name: "Bella",
+          email: "bella@glowup.com",
+          faceShape: analysisResult.faceShape as any,
+          skinTone: analysisResult.skinTone as any,
+          photoUrl: selectedImage || undefined,
+          analysisConfidence: analysisResult.confidence,
+          joinedDate: new Date().toISOString(),
+          stats: {
+            glowDays: 1,
+            checkIns: 0,
+            looksCreated: 0,
+          },
+        });
+      }
+      
       navigate("/dashboard");
     }
   };
@@ -92,7 +171,13 @@ const Onboarding = () => {
               </div>
 
               <div className="space-y-4">
-                {selectedImage ? (
+                {isAnalyzing ? (
+                  <div className="flex flex-col items-center justify-center aspect-square rounded-2xl border-2 border-primary/30 bg-primary/5">
+                    <Loader2 className="w-16 h-16 text-primary animate-spin mb-4" />
+                    <p className="text-sm font-medium">Analisando sua foto...</p>
+                    <p className="text-xs text-muted-foreground mt-2">Isso pode levar alguns segundos</p>
+                  </div>
+                ) : selectedImage ? (
                   <div className="relative aspect-square rounded-2xl overflow-hidden shadow-medium">
                     <img
                       src={selectedImage}
@@ -100,6 +185,13 @@ const Onboarding = () => {
                       className="w-full h-full object-cover"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                    {!analysisResult && (
+                      <div className="absolute bottom-4 left-4 right-4">
+                        <p className="text-white text-sm text-center">
+                          Foto pronta! Clique em continuar para analisar
+                        </p>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <label className="flex flex-col items-center justify-center aspect-square rounded-2xl border-2 border-dashed border-primary/30 bg-primary/5 cursor-pointer hover:bg-primary/10 transition-colors">
@@ -118,25 +210,40 @@ const Onboarding = () => {
             </div>
           )}
 
-          {step === 3 && (
+          {step === 3 && analysisResult && (
             <div className="space-y-6 text-center">
               <div className="w-20 h-20 mx-auto rounded-full bg-gradient-primary flex items-center justify-center shadow-glow animate-scale-in">
                 <Sparkles className="w-10 h-10 text-primary-foreground" />
               </div>
               <div className="space-y-2">
-                <h2 className="text-2xl font-semibold">Tudo pronto!</h2>
+                <h2 className="text-2xl font-semibold">Análise concluída! ✨</h2>
                 <p className="text-muted-foreground">
-                  Agora vamos personalizar sua experiência no Glow UP
+                  {analysisResult.analysis}
                 </p>
               </div>
               <div className="space-y-3 text-left">
-                <div className="p-4 rounded-lg bg-gradient-primary/10">
-                  <p className="font-medium">Tom de pele: Primavera</p>
-                  <p className="text-sm text-muted-foreground">Cores quentes ficam perfeitas em você</p>
+                <div className="p-4 rounded-lg bg-gradient-primary/10 border border-primary/20">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="font-medium">Tom de pele: {analysisResult.skinTone}</p>
+                    <span className="text-xs bg-primary/20 px-2 py-1 rounded-full">
+                      {analysisResult.confidence}% confiança
+                    </span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {analysisResult.skinTone === "primavera" || analysisResult.skinTone === "outono"
+                      ? "Cores quentes ficam perfeitas em você"
+                      : "Cores frias valorizam sua beleza"}
+                  </p>
                 </div>
-                <div className="p-4 rounded-lg bg-gradient-accent/10">
-                  <p className="font-medium">Formato: Oval</p>
-                  <p className="text-sm text-muted-foreground">Versátil para diversos estilos</p>
+                <div className="p-4 rounded-lg bg-gradient-accent/10 border border-accent/20">
+                  <p className="font-medium">Formato: {analysisResult.faceShape}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {analysisResult.faceShape === "oval" && "Versátil para diversos estilos"}
+                    {analysisResult.faceShape === "redondo" && "Cortes alongados favorecem você"}
+                    {analysisResult.faceShape === "quadrado" && "Camadas suaves valorizam seu rosto"}
+                    {analysisResult.faceShape === "coração" && "Volume inferior equilibra suas proporções"}
+                    {analysisResult.faceShape === "alongado" && "Volume lateral harmoniza seu rosto"}
+                  </p>
                 </div>
               </div>
             </div>
@@ -146,10 +253,24 @@ const Onboarding = () => {
             onClick={handleNext}
             className="w-full mt-6 bg-gradient-primary hover:opacity-90 transition-opacity shadow-medium"
             size="lg"
-            disabled={step === 2 && !selectedImage}
+            disabled={(step === 2 && !selectedImage) || isAnalyzing}
           >
-            {step === 3 ? "Começar!" : "Continuar"}
-            <ArrowRight className="ml-2 w-5 h-5" />
+            {isAnalyzing ? (
+              <>
+                <Loader2 className="mr-2 w-5 h-5 animate-spin" />
+                Analisando...
+              </>
+            ) : step === 3 ? (
+              <>
+                Começar!
+                <ArrowRight className="ml-2 w-5 h-5" />
+              </>
+            ) : (
+              <>
+                {step === 2 && selectedImage ? "Analisar foto" : "Continuar"}
+                <ArrowRight className="ml-2 w-5 h-5" />
+              </>
+            )}
           </Button>
         </Card>
       </div>

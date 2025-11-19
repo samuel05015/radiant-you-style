@@ -1,21 +1,71 @@
 import { useState } from "react";
-import { Sparkles, Heart, Shirt, Palette, ArrowLeft, RefreshCw } from "lucide-react";
+import { Sparkles, Heart, Shirt, Palette, ArrowLeft, RefreshCw, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
+import { generateOutfit, OutfitRecommendation } from "@/lib/ai-service";
+import { useUserStore } from "@/lib/user-store";
+import { useToast } from "@/hooks/use-toast";
+import { saveOutfit } from "@/lib/database";
 
 const LookPerfeito = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const profile = useUserStore((state) => state.profile);
+  const updateStats = useUserStore((state) => state.updateStats);
+  
   const [isGenerating, setIsGenerating] = useState(false);
   const [generated, setGenerated] = useState(false);
+  const [outfit, setOutfit] = useState<OutfitRecommendation | null>(null);
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
+    if (!profile?.email) return;
+    
     setIsGenerating(true);
-    // Simular geração de look
-    setTimeout(() => {
-      setIsGenerating(false);
+    
+    try {
+      const skinTone = profile?.skinTone || "primavera";
+      const faceShape = profile?.faceShape || "oval";
+      
+      const result = await generateOutfit(skinTone, faceShape, "casual");
+      setOutfit(result);
       setGenerated(true);
-    }, 2000);
+      
+      // Salvar outfit no Supabase
+      try {
+        await saveOutfit({
+          user_email: profile.email,
+          occasion: result.occasion,
+          top: result.top,
+          bottom: result.bottom,
+          shoes: result.shoes,
+          accessories: result.accessories,
+          colors: result.colors.join(', '),
+          style_notes: result.styleNotes,
+        });
+      } catch (dbError) {
+        console.error("Erro ao salvar outfit:", dbError);
+        // Continua mesmo se falhar salvar no banco
+      }
+      
+      // Atualizar estatísticas
+      updateStats({ looksCreated: (profile.stats.looksCreated || 0) + 1 });
+      
+      toast({
+        title: "Look criado com sucesso! ✨",
+        description: "Seu look personalizado está pronto!",
+      });
+      
+    } catch (error) {
+      console.error("Erro ao gerar look:", error);
+      toast({
+        title: "Erro ao gerar look",
+        description: "Tente novamente em alguns instantes.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   return (
@@ -74,7 +124,13 @@ const LookPerfeito = () => {
                   </div>
                   <div className="flex-1">
                     <p className="font-medium">Tom de pele</p>
-                    <p className="text-sm text-muted-foreground">Primavera - cores quentes</p>
+                    <p className="text-sm text-muted-foreground">
+                      {profile?.skinTone || "Primavera"} - cores {
+                        profile?.skinTone === "primavera" || profile?.skinTone === "outono"
+                          ? "quentes"
+                          : "frias"
+                      }
+                    </p>
                   </div>
                 </div>
               </Card>
@@ -86,7 +142,9 @@ const LookPerfeito = () => {
                   </div>
                   <div className="flex-1">
                     <p className="font-medium">Formato do rosto</p>
-                    <p className="text-sm text-muted-foreground">Oval - versátil</p>
+                    <p className="text-sm text-muted-foreground">
+                      {profile?.faceShape || "Oval"} - versátil
+                    </p>
                   </div>
                 </div>
               </Card>
@@ -138,15 +196,42 @@ const LookPerfeito = () => {
                 </div>
 
                 {/* Peças sugeridas */}
-                <div className="grid grid-cols-3 gap-3">
-                  {["Blusa rosa", "Calça jeans", "Tênis branco"].map((item, index) => (
-                    <div
-                      key={index}
-                      className="aspect-square rounded-xl bg-gradient-to-br from-accent/20 to-primary/20 flex items-center justify-center p-3 shadow-soft"
-                    >
-                      <Shirt className="w-8 h-8 text-accent-foreground" />
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-4 rounded-lg bg-card/50 border border-primary/20">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Shirt className="w-5 h-5 text-primary" />
+                        <p className="font-medium text-sm">Top</p>
+                      </div>
+                      <p className="text-sm text-muted-foreground">{outfit?.outfit.top}</p>
                     </div>
-                  ))}
+                    
+                    <div className="p-4 rounded-lg bg-card/50 border border-secondary/20">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Shirt className="w-5 h-5 text-secondary-foreground" />
+                        <p className="font-medium text-sm">Bottom</p>
+                      </div>
+                      <p className="text-sm text-muted-foreground">{outfit?.outfit.bottom}</p>
+                    </div>
+                    
+                    <div className="p-4 rounded-lg bg-card/50 border border-accent/20">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Shirt className="w-5 h-5 text-accent-foreground" />
+                        <p className="font-medium text-sm">Calçado</p>
+                      </div>
+                      <p className="text-sm text-muted-foreground">{outfit?.outfit.shoes}</p>
+                    </div>
+                    
+                    <div className="p-4 rounded-lg bg-card/50 border border-primary/20">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Sparkles className="w-5 h-5 text-primary" />
+                        <p className="font-medium text-sm">Acessórios</p>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {outfit?.outfit.accessories.join(", ")}
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Detalhes do look */}
@@ -154,21 +239,21 @@ const LookPerfeito = () => {
                   <div className="p-4 rounded-lg bg-card/50 border border-primary/20">
                     <p className="font-medium mb-1">💄 Make sugerida</p>
                     <p className="text-sm text-muted-foreground">
-                      Base leve + blush pêssego + gloss nude
+                      {outfit?.makeup}
                     </p>
                   </div>
 
                   <div className="p-4 rounded-lg bg-card/50 border border-secondary/20">
                     <p className="font-medium mb-1">💇‍♀️ Cabelo</p>
                     <p className="text-sm text-muted-foreground">
-                      Solto com ondas naturais - valoriza seu formato oval
+                      {outfit?.hair}
                     </p>
                   </div>
 
                   <div className="p-4 rounded-lg bg-card/50 border border-accent/20">
-                    <p className="font-medium mb-1">✨ Acessórios</p>
+                    <p className="font-medium mb-1">✨ Por que funciona?</p>
                     <p className="text-sm text-muted-foreground">
-                      Brincos delicados dourados + colar fino
+                      {outfit?.reasoning}
                     </p>
                   </div>
                 </div>

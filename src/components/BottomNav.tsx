@@ -1,4 +1,5 @@
 import { Home, Heart, Scissors, Shirt, User } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 interface BottomNavProps {
   activeTab: string;
@@ -6,13 +7,20 @@ interface BottomNavProps {
 }
 
 const BottomNav = ({ activeTab, onTabChange }: BottomNavProps) => {
+  const navigate = useNavigate();
+
   const tabs = [
-    { id: "home", icon: Home, label: "Home" },
-    { id: "skin", icon: Heart, label: "Skin" },
-    { id: "hair", icon: Scissors, label: "Hair" },
-    { id: "style", icon: Shirt, label: "Style" },
-    { id: "profile", icon: User, label: "Perfil" },
+    { id: "home", icon: Home, label: "Home", path: "/dashboard" },
+    { id: "skin", icon: Heart, label: "Skin", path: "/skin" },
+    { id: "hair", icon: Scissors, label: "Hair", path: "/hair" },
+    { id: "style", icon: Shirt, label: "Style", path: "/style" },
+    { id: "profile", icon: User, label: "Perfil", path: "/profile" },
   ];
+
+  const handleTabClick = (tab: typeof tabs[0]) => {
+    onTabChange(tab.id);
+    navigate(tab.path);
+  };
 
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-md border-t border-border shadow-medium z-50">
@@ -25,7 +33,7 @@ const BottomNav = ({ activeTab, onTabChange }: BottomNavProps) => {
             return (
               <button
                 key={tab.id}
-                onClick={() => onTabChange(tab.id)}
+                onClick={() => handleTabClick(tab)}
                 className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all ${
                   isActive
                     ? "text-primary"
