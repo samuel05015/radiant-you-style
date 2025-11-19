@@ -1,25 +1,51 @@
 import { useState } from "react";
-import { User, Camera, Palette, Heart, Calendar, Settings, LogOut, Crown, Sparkles } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { User, Camera, Palette, Heart, Calendar, Settings as SettingsIcon, LogOut, TrendingUp, Crown, Sparkles, Edit } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import BottomNav from "@/components/BottomNav";
+import { useUserStore } from "@/lib/user-store";
 
 const Profile = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("profile");
+  const profile = useUserStore((state) => state.profile);
 
   const stats = [
-    { label: "Dias de Glow", value: 15, color: "primary" },
-    { label: "Check-ins", value: 42, color: "secondary" },
-    { label: "Looks criados", value: 18, color: "accent" },
+    { label: "Dias de Glow", value: profile?.stats.glowDays || 0, color: "primary" },
+    { label: "Check-ins", value: profile?.stats.checkIns || 0, color: "secondary" },
+    { label: "Looks criados", value: profile?.stats.looksCreated || 0, color: "accent" },
   ];
 
   const achievements = [
-    { icon: Crown, label: "7 dias seguidos", color: "primary" },
-    { icon: Sparkles, label: "10 check-ins", color: "secondary" },
-    { icon: Heart, label: "Primeira rotina", color: "accent" },
+    { 
+      icon: Crown, 
+      label: "7 dias seguidos", 
+      color: "primary",
+      unlocked: (profile?.stats.glowDays || 0) >= 7
+    },
+    { 
+      icon: Sparkles, 
+      label: "10 check-ins", 
+      color: "secondary",
+      unlocked: (profile?.stats.checkIns || 0) >= 10
+    },
+    { 
+      icon: Heart, 
+      label: "Primeira análise", 
+      color: "accent",
+      unlocked: !!profile?.faceShape
+    },
   ];
+
+  const joinedDate = profile?.joinedDate 
+    ? new Date(profile.joinedDate).toLocaleDateString('pt-BR', { 
+        month: 'long', 
+        year: 'numeric' 
+      })
+    : "Novembro 2025";
 
   return (
     <div className="min-h-screen bg-gradient-glow pb-24">
@@ -30,26 +56,31 @@ const Profile = () => {
             {/* Avatar */}
             <div className="relative inline-block">
               <Avatar className="w-24 h-24 border-4 border-primary/20 shadow-glow">
-                <AvatarImage src="" />
+                {profile?.photoUrl ? (
+                  <AvatarImage src={profile.photoUrl} />
+                ) : null}
                 <AvatarFallback className="bg-gradient-primary text-2xl text-primary-foreground">
-                  B
+                  {profile?.name?.charAt(0).toUpperCase() || "U"}
                 </AvatarFallback>
               </Avatar>
-              <button className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-gradient-primary shadow-medium flex items-center justify-center border-2 border-card">
-                <Camera className="w-4 h-4 text-primary-foreground" />
+              <button 
+                onClick={() => navigate("/edit-profile")}
+                className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-gradient-primary shadow-medium flex items-center justify-center border-2 border-card hover:opacity-90 transition-opacity"
+              >
+                <Edit className="w-4 h-4 text-primary-foreground" />
               </button>
             </div>
 
             {/* User Info */}
             <div className="space-y-1">
-              <h1 className="text-2xl font-bold">Bella ✨</h1>
-              <p className="text-sm text-muted-foreground">bella@glowup.com</p>
+              <h1 className="text-2xl font-bold">{profile?.name || "Usuário"} ✨</h1>
+              <p className="text-sm text-muted-foreground">{profile?.email || "email@exemplo.com"}</p>
             </div>
 
             {/* Badge */}
             <Badge className="bg-gradient-primary text-primary-foreground shadow-soft">
               <Crown className="w-3 h-3 mr-1" />
-              Membro Premium
+              Glow Member
             </Badge>
           </div>
         </div>
@@ -78,16 +109,37 @@ const Profile = () => {
               return (
                 <Card
                   key={index}
-                  className={`p-4 text-center shadow-soft border-${achievement.color}/20 bg-${achievement.color}/5 backdrop-blur-sm`}
+                  className={`p-4 text-center shadow-soft backdrop-blur-sm transition-all ${
+                    achievement.unlocked
+                      ? `border-${achievement.color}/20 bg-${achievement.color}/10`
+                      : "border-border/50 bg-card/30 opacity-60"
+                  }`}
                 >
-                  <div className={`w-12 h-12 mx-auto mb-2 rounded-full bg-${achievement.color}/10 flex items-center justify-center`}>
-                    <Icon className={`w-6 h-6 text-${achievement.color}-foreground`} />
+                  <div className={`w-12 h-12 mx-auto mb-2 rounded-full flex items-center justify-center ${
+                    achievement.unlocked 
+                      ? `bg-${achievement.color}/20` 
+                      : "bg-border/50"
+                  }`}>
+                    <Icon className={`w-6 h-6 ${
+                      achievement.unlocked 
+                        ? `text-${achievement.color}-foreground` 
+                        : "text-muted-foreground"
+                    }`} />
                   </div>
                   <p className="text-xs font-medium">{achievement.label}</p>
                 </Card>
               );
             })}
           </div>
+          
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => navigate("/my-progress")}
+          >
+            <TrendingUp className="w-4 h-4 mr-2" />
+            Ver Todas as Conquistas
+          </Button>
         </div>
 
         {/* Informações de Perfil */}
@@ -101,7 +153,9 @@ const Profile = () => {
               </div>
               <div className="flex-1">
                 <h3 className="font-semibold">Coloração Pessoal</h3>
-                <p className="text-sm text-muted-foreground">Tom de pele: Primavera</p>
+                <p className="text-sm text-muted-foreground capitalize">
+                  Tom de pele: {profile?.skinTone || "Não definido"}
+                </p>
               </div>
             </div>
             <div className="flex gap-2">
@@ -125,7 +179,9 @@ const Profile = () => {
               </div>
               <div className="flex-1">
                 <h3 className="font-semibold">Formato do Rosto</h3>
-                <p className="text-sm text-muted-foreground">Oval - versátil para estilos</p>
+                <p className="text-sm text-muted-foreground capitalize">
+                  {profile?.faceShape || "Não definido"}
+                </p>
               </div>
             </div>
           </Card>
@@ -137,7 +193,7 @@ const Profile = () => {
               </div>
               <div className="flex-1">
                 <h3 className="font-semibold">Membro desde</h3>
-                <p className="text-sm text-muted-foreground">Novembro 2025</p>
+                <p className="text-sm text-muted-foreground capitalize">{joinedDate}</p>
               </div>
             </div>
           </Card>
@@ -148,29 +204,33 @@ const Profile = () => {
           <h2 className="text-lg font-semibold px-1">Configurações</h2>
 
           <Card className="divide-y divide-border/50 shadow-soft border-border/50 bg-card/50 backdrop-blur-sm overflow-hidden">
-            <button className="w-full p-4 flex items-center gap-3 hover:bg-muted/50 transition-colors text-left">
-              <Settings className="w-5 h-5 text-muted-foreground" />
+            <button 
+              onClick={() => navigate("/settings")}
+              className="w-full p-4 flex items-center gap-3 hover:bg-muted/50 transition-colors text-left"
+            >
+              <SettingsIcon className="w-5 h-5 text-muted-foreground" />
               <span className="flex-1 font-medium">Configurações gerais</span>
               <span className="text-muted-foreground">→</span>
             </button>
 
-            <button className="w-full p-4 flex items-center gap-3 hover:bg-muted/50 transition-colors text-left">
+            <button 
+              onClick={() => navigate("/edit-profile")}
+              className="w-full p-4 flex items-center gap-3 hover:bg-muted/50 transition-colors text-left"
+            >
               <User className="w-5 h-5 text-muted-foreground" />
               <span className="flex-1 font-medium">Editar perfil</span>
               <span className="text-muted-foreground">→</span>
             </button>
 
-            <button className="w-full p-4 flex items-center gap-3 hover:bg-muted/50 transition-colors text-left">
+            <button 
+              onClick={() => navigate("/onboarding")}
+              className="w-full p-4 flex items-center gap-3 hover:bg-muted/50 transition-colors text-left"
+            >
               <Camera className="w-5 h-5 text-muted-foreground" />
               <span className="flex-1 font-medium">Refazer análise</span>
               <span className="text-muted-foreground">→</span>
             </button>
           </Card>
-
-          <Button variant="outline" className="w-full text-destructive hover:text-destructive border-destructive/20 hover:bg-destructive/10">
-            <LogOut className="mr-2 w-4 h-4" />
-            Sair da conta
-          </Button>
         </div>
 
         {/* Motivação */}

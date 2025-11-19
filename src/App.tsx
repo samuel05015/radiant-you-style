@@ -11,6 +11,10 @@ import GlowHair from "./pages/GlowHair";
 import GlowStyle from "./pages/GlowStyle";
 import LookPerfeito from "./pages/LookPerfeito";
 import Profile from "./pages/Profile";
+import Settings from "./pages/Settings";
+import EditProfile from "./pages/EditProfile";
+import MyProgress from "./pages/MyProgress";
+import About from "./pages/About";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,6 +34,10 @@ const App = () => (
           <Route path="/style" element={<GlowStyle />} />
           <Route path="/look-perfeito" element={<LookPerfeito />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/edit-profile" element={<EditProfile />} />
+          <Route path="/my-progress" element={<MyProgress />} />
+          <Route path="/about" element={<About />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
