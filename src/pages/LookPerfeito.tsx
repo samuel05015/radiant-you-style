@@ -202,9 +202,11 @@ const LookPerfeito = () => {
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-gradient-primary flex items-center justify-center shadow-glow animate-glow-pulse">
-                <Sparkles className="w-6 h-6 text-primary-foreground" />
-              </div>
+              <img 
+                src="/glowy.jpeg" 
+                alt="Glow UP" 
+                className="w-12 h-12 rounded-full shadow-glow animate-glow-pulse object-cover"
+              />
               <div>
                 <h1 className="text-2xl font-bold">Look Perfeito</h1>
                 <p className="text-sm text-muted-foreground">Feito especialmente para você</p>
@@ -220,9 +222,11 @@ const LookPerfeito = () => {
           <>
             {/* Intro */}
             <Card className="p-6 shadow-medium border-primary/20 bg-card/50 backdrop-blur-sm text-center space-y-4">
-              <div className="w-20 h-20 mx-auto rounded-full bg-gradient-primary flex items-center justify-center shadow-glow">
-                <Sparkles className="w-10 h-10 text-primary-foreground" />
-              </div>
+              <img 
+                src="/glowy.jpeg" 
+                alt="Glow UP" 
+                className="w-20 h-20 mx-auto rounded-full shadow-glow object-cover"
+              />
               <div className="space-y-2">
                 <h2 className="text-2xl font-bold">Crie seu look perfeito!</h2>
                 <p className="text-muted-foreground">

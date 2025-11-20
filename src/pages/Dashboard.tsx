@@ -133,9 +133,11 @@ const Dashboard = () => {
           <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-primary opacity-20 rounded-full blur-3xl" />
           <div className="relative space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-gradient-primary flex items-center justify-center shadow-medium animate-glow-pulse">
-                <Sparkles className="w-6 h-6 text-primary-foreground" />
-              </div>
+              <img 
+                src="/glowy.jpeg" 
+                alt="Glow UP" 
+                className="w-12 h-12 rounded-full shadow-medium animate-glow-pulse object-cover"
+              />
               <div>
                 <h3 className="text-lg font-semibold">Look Perfeito</h3>
                 <p className="text-sm text-muted-foreground">

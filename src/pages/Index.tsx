@@ -24,8 +24,12 @@ const Index = () => {
       <div className="max-w-md w-full space-y-8 relative z-10">
         {/* Logo */}
         <div className="text-center space-y-4 animate-fade-in">
-          <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-gradient-primary shadow-glow mb-4 animate-float">
-            <Sparkles className="w-12 h-12 text-primary-foreground" />
+          <div className="inline-flex items-center justify-center mb-4 animate-float">
+            <img 
+              src="/glowy.jpeg" 
+              alt="Glow UP Logo" 
+              className="w-32 h-32 rounded-full shadow-glow object-cover"
+            />
           </div>
           
           <h1 className="text-5xl font-bold bg-gradient-primary bg-clip-text text-transparent">
