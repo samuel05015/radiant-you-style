@@ -386,10 +386,12 @@ const LookPerfeito = () => {
 
                 {/* Peças sugeridas */}
                 <div className="space-y-3">
-                  {/* Top ou Vestido */}
+                  {/* Top, Vestido ou Macacão */}
                   <div className="flex items-center gap-3 p-4 rounded-lg bg-card/50 border border-primary/20">
                     <div className="text-3xl">
-                      {outfit?.outfit.top?.toLowerCase().includes('vestido') ? '👗' : '👕'}
+                      {outfit?.outfit.top?.toLowerCase().includes('vestido') ? '👗' : 
+                       outfit?.outfit.top?.toLowerCase().includes('macacão') || outfit?.outfit.top?.toLowerCase().includes('macacao') ? '🩱' : 
+                       '👕'}
                     </div>
                     <p className="text-sm flex-1">{outfit?.outfit.top}</p>
                   </div>

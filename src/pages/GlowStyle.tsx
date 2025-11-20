@@ -17,6 +17,7 @@ const getCategoryEmoji = (category: string) => {
     "Calças": "👖",
     "Sapatos": "👞",
     "Vestidos": "👗",
+    "Macacões": "🩱",
     "Casacos": "🧥",
     "Acessórios": "👜",
     "Blusas": "👚",
@@ -41,8 +42,8 @@ const GlowStyle = () => {
 
   const isMale = profile?.gender === "masculino";
   const categories = isMale 
-    ? ["Camisas", "Camisas Sociais", "Calças", "Shorts/Bermudas", "Sapatos", "Casacos", "Acessórios"]
-    : ["Camisas", "Camisas Sociais", "Blusas", "Calças", "Shorts/Bermudas", "Sapatos", "Vestidos", "Casacos", "Acessórios"];
+    ? ["Camisas", "Camisas Sociais", "Calças", "Shorts/Bermudas", "Sapatos", "Macacões", "Casacos", "Acessórios"]
+    : ["Camisas", "Camisas Sociais", "Blusas", "Calças", "Shorts/Bermudas", "Sapatos", "Vestidos", "Macacões", "Casacos", "Acessórios"];
 
   const ITEMS_PER_PAGE = 12;
 
