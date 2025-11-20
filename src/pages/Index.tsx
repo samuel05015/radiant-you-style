@@ -8,12 +8,12 @@ const Index = () => {
   const navigate = useNavigate();
   const profile = useUserStore((state) => state.profile);
   
-  // Se já tiver perfil, redireciona para dashboard
-  useEffect(() => {
-    if (profile) {
-      navigate("/dashboard");
-    }
-  }, [profile, navigate]);
+  // Redirecionamento automático desabilitado - usuário escolhe onde ir
+  // useEffect(() => {
+  //   if (profile) {
+  //     navigate("/dashboard");
+  //   }
+  // }, [profile, navigate]);
 
   return (
     <div className="min-h-screen gradient-glow flex flex-col items-center justify-center p-6 overflow-hidden relative">
