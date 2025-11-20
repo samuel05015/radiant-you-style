@@ -386,18 +386,25 @@ const LookPerfeito = () => {
 
                 {/* Peças sugeridas */}
                 <div className="space-y-3">
+                  {/* Top ou Vestido */}
                   <div className="flex items-center gap-3 p-4 rounded-lg bg-card/50 border border-primary/20">
-                    <div className="text-3xl">👕</div>
+                    <div className="text-3xl">
+                      {outfit?.outfit.top?.toLowerCase().includes('vestido') ? '👗' : '👕'}
+                    </div>
                     <p className="text-sm flex-1">{outfit?.outfit.top}</p>
                   </div>
                   
-                  <div className="flex items-center gap-3 p-4 rounded-lg bg-card/50 border border-secondary/20">
-                    <div className="text-3xl">👖</div>
-                    <p className="text-sm flex-1">{outfit?.outfit.bottom}</p>
-                  </div>
+                  {/* Bottom (só mostra se não for "não usar") */}
+                  {outfit?.outfit.bottom && !outfit.outfit.bottom.toLowerCase().includes('não usar') && (
+                    <div className="flex items-center gap-3 p-4 rounded-lg bg-card/50 border border-secondary/20">
+                      <div className="text-3xl">👖</div>
+                      <p className="text-sm flex-1">{outfit?.outfit.bottom}</p>
+                    </div>
+                  )}
                   
+                  {/* Sapatos */}
                   <div className="flex items-center gap-3 p-4 rounded-lg bg-card/50 border border-accent/20">
-                    <div className="text-3xl">👟</div>
+                    <div className="text-3xl">👞</div>
                     <p className="text-sm flex-1">{outfit?.outfit.shoes}</p>
                   </div>
                   

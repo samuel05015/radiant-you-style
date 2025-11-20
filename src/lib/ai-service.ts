@@ -287,7 +287,11 @@ export async function generateOutfit(
         `${idx + 1}. ${item.category} - ${item.color}`
       ).join('\n');
       
+      // Verificar se tem vestido
+      const hasDress = closetItems.some(i => i.category.toLowerCase().includes('vestido'));
+      
       // Criar exemplo JSON com as peças reais
+      const firstDress = closetItems.find(i => i.category.toLowerCase().includes('vestido'));
       const firstTop = closetItems.find(i => 
         i.category.toLowerCase().includes('blusa') || 
         i.category.toLowerCase().includes('camisa') ||
@@ -309,8 +313,13 @@ export async function generateOutfit(
         i.category.toLowerCase().includes('chinelo')
       );
       
-      const exampleTop = firstTop ? `"${firstTop.category} ${firstTop.color}"` : '"PRECISA ADICIONAR: Blusa/Camisa"';
-      const exampleBottom = firstBottom ? `"${firstBottom.category} ${firstBottom.color}"` : '"PRECISA ADICIONAR: Calça/Saia"';
+      // Se tem vestido, pode usar vestido OU top+bottom
+      const exampleTop = firstDress && hasDress && occasion !== 'casual' 
+        ? `"${firstDress.category} ${firstDress.color}"` 
+        : (firstTop ? `"${firstTop.category} ${firstTop.color}"` : '"PRECISA ADICIONAR: Blusa/Camisa"');
+      const exampleBottom = firstDress && hasDress && occasion !== 'casual'
+        ? '"não usar (vestido substitui)"'
+        : (firstBottom ? `"${firstBottom.category} ${firstBottom.color}"` : '"PRECISA ADICIONAR: Calça/Saia"');
       const exampleShoes = firstShoes ? `"${firstShoes.category} ${firstShoes.color}"` : '"PRECISA ADICIONAR: Sapatos"';
       
       // Ajustar acessórios, maquiagem e cabelo baseado no gênero
@@ -356,11 +365,13 @@ ${recentLooksWarning}
    - Balance o look: se o top é largo, o bottom deve ser ajustado (e vice-versa)
    - Combine texturas e tecidos complementares
    - Considere a estação atual (Novembro - Primavera no BR)
+   ${gender === "feminino" && hasDress ? '- VESTIDOS: Pode sugerir vestido SOZINHO (sem top+bottom). Neste caso, coloque o vestido no campo "top" e escreva "não usar" no campo "bottom"' : ''}
 
 4. REGRAS TÉCNICAS:
    - Use APENAS peças da lista acima
    - Se faltar categoria, escreva "PRECISA ADICIONAR: [tipo]"
    ${gender === "masculino" ? '- Cliente é HOMEM: não sugira maquiagem, batom, brincos ou bolsa' : ''}
+   ${gender === "feminino" && hasDress ? '- OPÇÃO VESTIDO: Se sugerir vestido, coloque no "top" e escreva "não usar" no "bottom"' : ''}
    ${recentOutfits && recentOutfits.length > 0 ? '- 🚨 CRÍTICO: NÃO repita tops/camisas dos looks recentes!' : ''}
 
 Responda EXATAMENTE neste formato JSON (use as peças da lista):
