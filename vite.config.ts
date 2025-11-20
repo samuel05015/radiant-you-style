@@ -15,5 +15,5 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  base: "/radiant-you-style/",
+  base: mode === "production" ? "/radiant-you-style/" : "/",
 }));
