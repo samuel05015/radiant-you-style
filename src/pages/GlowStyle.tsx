@@ -278,7 +278,7 @@ const GlowStyle = () => {
           
           {categoryToAdd ? (
             <Card className="p-6 text-center shadow-soft border-accent bg-accent/20 backdrop-blur-sm">
-              <p className="text-sm font-medium mb-3">📸 Adicione uma foto da peça de:</p>
+              <p className="text-sm font-medium mb-3">📸 Tire uma foto ou escolha da galeria:</p>
               <h3 className="text-xl font-bold mb-4">{categoryToAdd}</h3>
               <div className="flex flex-col gap-3">
                 <input
