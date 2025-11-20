@@ -26,7 +26,7 @@ const Index = () => {
         <div className="text-center space-y-4 animate-fade-in">
           <div className="inline-flex items-center justify-center mb-4 animate-float">
             <img 
-              src="/glowy.jpeg" 
+              src="/glowy.png" 
               alt="Glow UP Logo" 
               className="w-32 h-32 rounded-full shadow-glow object-cover"
             />

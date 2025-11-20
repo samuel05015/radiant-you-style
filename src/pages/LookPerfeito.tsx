@@ -203,7 +203,7 @@ const LookPerfeito = () => {
             </Button>
             <div className="flex items-center gap-3">
               <img 
-                src="/glowy.jpeg" 
+                src="/glowy.png" 
                 alt="Glow UP" 
                 className="w-12 h-12 rounded-full shadow-glow animate-glow-pulse object-cover"
               />
@@ -223,7 +223,7 @@ const LookPerfeito = () => {
             {/* Intro */}
             <Card className="p-6 shadow-medium border-primary/20 bg-card/50 backdrop-blur-sm text-center space-y-4">
               <img 
-                src="/glowy.jpeg" 
+                src="/glowy.png" 
                 alt="Glow UP" 
                 className="w-20 h-20 mx-auto rounded-full shadow-glow object-cover"
               />

@@ -134,7 +134,7 @@ const Dashboard = () => {
           <div className="relative space-y-4">
             <div className="flex items-center gap-3">
               <img 
-                src="/glowy.jpeg" 
+                src="/glowy.png" 
                 alt="Glow UP" 
                 className="w-12 h-12 rounded-full shadow-medium animate-glow-pulse object-cover"
               />
