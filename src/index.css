@@ -62,6 +62,55 @@ All colors MUST be HSL.
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
   }
+
+  .dark {
+    /* Base colors - dark elegant */
+    --background: 240 10% 7%;
+    --foreground: 340 10% 90%;
+    
+    /* Card surfaces */
+    --card: 240 10% 10%;
+    --card-foreground: 340 10% 90%;
+    
+    /* Popover */
+    --popover: 240 10% 10%;
+    --popover-foreground: 340 10% 90%;
+    
+    /* Primary - soft rose gold adjusted for dark */
+    --primary: 340 55% 65%;
+    --primary-foreground: 340 10% 95%;
+    
+    /* Secondary - lavender adjusted */
+    --secondary: 270 35% 50%;
+    --secondary-foreground: 270 10% 95%;
+    
+    /* Muted - dark peachy */
+    --muted: 240 10% 15%;
+    --muted-foreground: 30 10% 65%;
+    
+    /* Accent - golden adjusted */
+    --accent: 40 40% 45%;
+    --accent-foreground: 40 5% 95%;
+    
+    /* Destructive */
+    --destructive: 0 60% 50%;
+    --destructive-foreground: 0 0% 100%;
+    
+    /* Borders and inputs */
+    --border: 240 10% 20%;
+    --input: 240 10% 18%;
+    --ring: 340 55% 55%;
+    
+    /* Custom gradients for dark mode */
+    --gradient-primary: linear-gradient(135deg, hsl(340, 55%, 35%) 0%, hsl(270, 35%, 30%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(40, 40%, 25%) 0%, hsl(30, 30%, 20%) 100%);
+    --gradient-glow: linear-gradient(180deg, hsl(240, 10%, 10%) 0%, hsl(240, 10%, 7%) 100%);
+    
+    /* Shadows for dark mode */
+    --shadow-soft: 0 4px 20px -4px hsl(0 0% 0% / 0.5);
+    --shadow-medium: 0 8px 30px -6px hsl(0 0% 0% / 0.6);
+    --shadow-glow: 0 0 40px hsl(340 55% 35% / 0.3);
+  }
 }
 
 @layer base {

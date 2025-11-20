@@ -1,18 +1,54 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Sparkles, Heart, Scissors, Shirt } from "lucide-react";
+import { Sparkles, Heart, Scissors, Shirt, Bookmark } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import BottomNav from "@/components/BottomNav";
 import { useUserStore } from "@/lib/user-store";
+import { supabase } from "@/lib/supabase";
+import { useToast } from "@/hooks/use-toast";
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("home");
   const [isLoading, setIsLoading] = useState(true);
   const [hasChecked, setHasChecked] = useState(false);
+  const [savedLooksCount, setSavedLooksCount] = useState(0);
   const profile = useUserStore((state) => state.profile);
   
+  // Carregar contagem de looks salvos
+  useEffect(() => {
+    const loadSavedLooksCount = async () => {
+      if (!profile?.email) return;
+      
+      try {
+        // Buscar o profile_id do usuário
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('email', profile.email)
+          .single();
+
+        if (profileError) throw profileError;
+
+        // Contar looks salvos
+        const { count, error: countError } = await supabase
+          .from('outfits')
+          .select('*', { count: 'exact', head: true })
+          .eq('profile_id', profileData.id);
+
+        if (countError) throw countError;
+
+        setSavedLooksCount(count || 0);
+      } catch (error) {
+        console.error("Erro ao carregar contagem de looks:", error);
+      }
+    };
+
+    loadSavedLooksCount();
+  }, [profile?.email]);
+
   // Redirecionar para login se não tiver perfil (após verificação inicial)
   useEffect(() => {
     if (hasChecked) return;
@@ -52,17 +88,19 @@ const Dashboard = () => {
               <h1 className="text-2xl font-bold">Olá, {profile?.name || "Bella"}! ✨</h1>
               <p className="text-sm text-muted-foreground">Como você está hoje?</p>
             </div>
-            {profile?.photoUrl ? (
-              <img
-                src={profile.photoUrl}
-                alt="Profile"
-                className="w-12 h-12 rounded-full object-cover shadow-soft border-2 border-primary/20"
-              />
-            ) : (
-              <div className="w-12 h-12 rounded-full bg-gradient-primary shadow-soft flex items-center justify-center text-primary-foreground font-semibold">
-                {profile?.name?.charAt(0).toUpperCase() || "B"}
-              </div>
-            )}
+            <div>
+              {profile?.photoUrl ? (
+                <img
+                  src={profile.photoUrl}
+                  alt="Profile"
+                  className="w-12 h-12 rounded-full object-cover shadow-soft border-2 border-primary/20"
+                />
+              ) : (
+                <div className="w-12 h-12 rounded-full bg-gradient-primary shadow-soft flex items-center justify-center text-primary-foreground font-semibold">
+                  {profile?.name?.charAt(0).toUpperCase() || "B"}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -72,20 +110,20 @@ const Dashboard = () => {
         {/* Quick Stats */}
         <div className="grid grid-cols-3 gap-3">
           <Card className="p-4 text-center shadow-soft border-primary/20 bg-card/50 backdrop-blur-sm">
-            <div className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+            <div className="text-2xl font-bold text-foreground">
               {profile?.stats.glowDays || 0}
             </div>
             <p className="text-xs text-muted-foreground mt-1">Dias de Glow</p>
           </Card>
           <Card className="p-4 text-center shadow-soft border-secondary/20 bg-card/50 backdrop-blur-sm">
-            <div className="text-2xl font-bold bg-gradient-to-r from-secondary to-accent bg-clip-text text-transparent">
+            <div className="text-2xl font-bold text-foreground">
               {profile?.stats.checkIns || 0}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Check-ins</p>
+            <p className="text-xs text-muted-foreground mt-1">Análises</p>
           </Card>
           <Card className="p-4 text-center shadow-soft border-accent/20 bg-card/50 backdrop-blur-sm">
-            <div className="text-2xl font-bold text-accent-foreground">{profile?.stats.looksCreated || 0}</div>
-            <p className="text-xs text-muted-foreground mt-1">Looks criados</p>
+            <div className="text-2xl font-bold text-foreground">{savedLooksCount}</div>
+            <p className="text-xs text-muted-foreground mt-1">Looks salvos</p>
           </Card>
         </div>
 
@@ -107,6 +145,20 @@ const Dashboard = () => {
             <Button className="w-full bg-gradient-primary hover:opacity-90 transition-opacity shadow-medium" onClick={() => navigate("/look-perfeito")}>
               Descobrir meu look ✨
             </Button>
+          </div>
+        </Card>
+
+        {/* Meus Salvos */}
+        <Card className="p-5 shadow-soft hover:shadow-medium transition-all cursor-pointer border-secondary/20 bg-card/50 backdrop-blur-sm" onClick={() => navigate("/my-saved")}>
+          <div className="flex items-center gap-4">
+            <div className="w-11 h-11 rounded-full bg-gradient-to-br from-secondary to-accent flex items-center justify-center shadow-soft">
+              <Bookmark className="w-5 h-5 text-secondary-foreground" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold">Meus Salvos</h3>
+              <p className="text-sm text-muted-foreground">Veja seus looks e cortes favoritos</p>
+            </div>
+            <Heart className="w-5 h-5 text-muted-foreground" />
           </div>
         </Card>
 

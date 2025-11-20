@@ -20,6 +20,30 @@ const LookPerfeito = () => {
   const [outfit, setOutfit] = useState<OutfitRecommendation | null>(null);
   const [closetItemsCount, setClosetItemsCount] = useState(0);
   const [closetItems, setClosetItems] = useState<any[]>([]);
+  const [selectedOccasion, setSelectedOccasion] = useState<"casual" | "formal" | "festa">("casual");
+
+  // Verificar e atualizar gender do perfil
+  useEffect(() => {
+    const checkGender = async () => {
+      if (!profile?.email || profile?.gender) return; // Já tem gender
+      
+      try {
+        const { data } = await supabase
+          .from('profiles')
+          .select('gender')
+          .eq('email', profile.email)
+          .single();
+        
+        if (data?.gender) {
+          console.log("🔄 Atualizando gender no perfil:", data.gender);
+          useUserStore.getState().setProfile({ ...profile, gender: data.gender });
+        }
+      } catch (error) {
+        console.error("Erro ao buscar gender:", error);
+      }
+    };
+    checkGender();
+  }, [profile?.email]);
 
   // Carregar peças do closet
   useEffect(() => {
@@ -58,6 +82,28 @@ const LookPerfeito = () => {
       const faceShape = profile?.faceShape || "oval";
       const gender = profile?.gender || "feminino";
       
+      // Buscar últimos 5 looks salvos para evitar repetição
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', profile.email)
+        .single();
+
+      let recentOutfits: string[] = [];
+      if (profileData) {
+        const { data: outfits } = await supabase
+          .from('outfits')
+          .select('top, bottom, shoes')
+          .eq('profile_id', profileData.id)
+          .eq('occasion', selectedOccasion)
+          .order('created_at', { ascending: false })
+          .limit(5);
+
+        if (outfits) {
+          recentOutfits = outfits.map(o => `${o.top}|${o.bottom}|${o.shoes}`);
+        }
+      }
+      
       console.log("═══════════════════════════════════");
       console.log("🎨 GERANDO OUTFIT");
       console.log("═══════════════════════════════════");
@@ -65,15 +111,18 @@ const LookPerfeito = () => {
       console.log("  - skinTone:", skinTone);
       console.log("  - faceShape:", faceShape);
       console.log("  - gender:", gender);
+      console.log("  - occasion:", selectedOccasion);
       console.log("");
       console.log("👔 Peças do closet (" + closetItems.length + "):");
       closetItems.forEach((item, idx) => {
         console.log(`  ${idx + 1}. ${item.category} - ${item.color}`);
       });
+      console.log("");
+      console.log("🚫 Looks recentes a evitar:", recentOutfits.length);
       console.log("═══════════════════════════════════");
       
-      // Passar as peças do closet para a IA
-      const result = await generateOutfit(skinTone, faceShape, gender, "casual", undefined, closetItems);
+      // Passar as peças do closet e looks recentes para a IA
+      const result = await generateOutfit(skinTone, faceShape, gender, selectedOccasion, undefined, closetItems, recentOutfits);
       
       console.log("═══════════════════════════════════");
       console.log("✅ RESULTADO DA IA:");
@@ -116,7 +165,10 @@ const LookPerfeito = () => {
       }
       
       // Atualizar estatísticas
-      updateStats({ looksCreated: (profile.stats.looksCreated || 0) + 1 });
+      updateStats({ 
+        looksCreated: (profile.stats.looksCreated || 0) + 1,
+        checkIns: (profile.stats.checkIns || 0) + 1
+      });
       
       toast({
         title: "Look criado com sucesso! ✨",
@@ -181,6 +233,51 @@ const LookPerfeito = () => {
                 </p>
               </div>
             </Card>
+
+            {/* Seletor de Ocasião */}
+            <div className="space-y-3">
+              <h3 className="text-lg font-semibold px-1">Para qual ocasião?</h3>
+              <div className="grid grid-cols-3 gap-3">
+                <Card 
+                  className={`p-4 text-center cursor-pointer transition-all ${
+                    selectedOccasion === "casual" 
+                      ? "border-primary bg-primary/10 shadow-medium" 
+                      : "border-border/50 bg-card/50 hover:border-primary/50"
+                  }`}
+                  onClick={() => setSelectedOccasion("casual")}
+                >
+                  <div className="text-3xl mb-2">👕</div>
+                  <p className="text-sm font-medium">Casual</p>
+                  <p className="text-xs text-muted-foreground">Dia a dia</p>
+                </Card>
+
+                <Card 
+                  className={`p-4 text-center cursor-pointer transition-all ${
+                    selectedOccasion === "formal" 
+                      ? "border-primary bg-primary/10 shadow-medium" 
+                      : "border-border/50 bg-card/50 hover:border-primary/50"
+                  }`}
+                  onClick={() => setSelectedOccasion("formal")}
+                >
+                  <div className="text-3xl mb-2">👔</div>
+                  <p className="text-sm font-medium">Formal</p>
+                  <p className="text-xs text-muted-foreground">Trabalho</p>
+                </Card>
+
+                <Card 
+                  className={`p-4 text-center cursor-pointer transition-all ${
+                    selectedOccasion === "festa" 
+                      ? "border-primary bg-primary/10 shadow-medium" 
+                      : "border-border/50 bg-card/50 hover:border-primary/50"
+                  }`}
+                  onClick={() => setSelectedOccasion("festa")}
+                >
+                  <div className="text-3xl mb-2">🎉</div>
+                  <p className="text-sm font-medium">Festa</p>
+                  <p className="text-xs text-muted-foreground">Eventos</p>
+                </Card>
+              </div>
+            </div>
 
             {/* O que será analisado */}
             <div className="space-y-3">
@@ -288,55 +385,45 @@ const LookPerfeito = () => {
                 </div>
 
                 {/* Peças sugeridas */}
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="p-4 rounded-lg bg-card/50 border border-primary/20">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Shirt className="w-5 h-5 text-primary" />
-                        <p className="font-medium text-sm">Top</p>
-                      </div>
-                      <p className="text-sm text-muted-foreground">{outfit?.outfit.top}</p>
-                    </div>
-                    
-                    <div className="p-4 rounded-lg bg-card/50 border border-secondary/20">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Shirt className="w-5 h-5 text-secondary-foreground" />
-                        <p className="font-medium text-sm">Bottom</p>
-                      </div>
-                      <p className="text-sm text-muted-foreground">{outfit?.outfit.bottom}</p>
-                    </div>
-                    
-                    <div className="p-4 rounded-lg bg-card/50 border border-accent/20">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Shirt className="w-5 h-5 text-accent-foreground" />
-                        <p className="font-medium text-sm">Calçado</p>
-                      </div>
-                      <p className="text-sm text-muted-foreground">{outfit?.outfit.shoes}</p>
-                    </div>
-                    
-                    <div className="p-4 rounded-lg bg-card/50 border border-primary/20">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Sparkles className="w-5 h-5 text-primary" />
-                        <p className="font-medium text-sm">Acessórios</p>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {outfit?.outfit.accessories.join(", ")}
-                      </p>
-                    </div>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 p-4 rounded-lg bg-card/50 border border-primary/20">
+                    <div className="text-3xl">👕</div>
+                    <p className="text-sm flex-1">{outfit?.outfit.top}</p>
+                  </div>
+                  
+                  <div className="flex items-center gap-3 p-4 rounded-lg bg-card/50 border border-secondary/20">
+                    <div className="text-3xl">👖</div>
+                    <p className="text-sm flex-1">{outfit?.outfit.bottom}</p>
+                  </div>
+                  
+                  <div className="flex items-center gap-3 p-4 rounded-lg bg-card/50 border border-accent/20">
+                    <div className="text-3xl">👟</div>
+                    <p className="text-sm flex-1">{outfit?.outfit.shoes}</p>
+                  </div>
+                  
+                  <div className="flex items-center gap-3 p-4 rounded-lg bg-card/50 border border-primary/20">
+                    <div className="text-3xl">✨</div>
+                    <p className="text-sm flex-1">
+                      {Array.isArray(outfit?.outfit.accessories) 
+                        ? outfit.outfit.accessories.join(", ")
+                        : outfit?.outfit.accessories || "Nenhum acessório"}
+                    </p>
                   </div>
                 </div>
 
                 {/* Detalhes do look */}
                 <div className="space-y-3">
-                  <div className="p-4 rounded-lg bg-card/50 border border-primary/20">
-                    <p className="font-medium mb-1">💄 Make sugerida</p>
-                    <p className="text-sm text-muted-foreground">
-                      {outfit?.makeup}
-                    </p>
-                  </div>
+                  {profile?.gender !== "masculino" && outfit?.makeup && outfit.makeup !== "Não aplicável" && (
+                    <div className="p-4 rounded-lg bg-card/50 border border-primary/20">
+                      <p className="font-medium mb-1">💄 Make sugerida</p>
+                      <p className="text-sm text-muted-foreground">
+                        {outfit.makeup}
+                      </p>
+                    </div>
+                  )}
 
                   <div className="p-4 rounded-lg bg-card/50 border border-secondary/20">
-                    <p className="font-medium mb-1">💇‍♀️ Cabelo</p>
+                    <p className="font-medium mb-1">{profile?.gender === "masculino" ? "💇‍♂️ Cabelo" : "💇‍♀️ Cabelo"}</p>
                     <p className="text-sm text-muted-foreground">
                       {outfit?.hair}
                     </p>
@@ -353,7 +440,10 @@ const LookPerfeito = () => {
                 {/* Motivação */}
                 <Card className="p-4 text-center bg-gradient-accent/10 border-accent/30">
                   <p className="text-sm italic">
-                    "Você é única e seu estilo também! Arrase com confiança hoje 💖"
+                    {profile?.gender === "masculino" 
+                      ? "Você é único e seu estilo também! Vista-se com confiança hoje 💪"
+                      : "Você é única e seu estilo também! Arrase com confiança hoje 💖"
+                    }
                   </p>
                 </Card>
               </div>

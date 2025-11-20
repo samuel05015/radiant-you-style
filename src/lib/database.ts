@@ -166,6 +166,53 @@ export async function getHairCheckIns(profileId: string, limit: number = 30): Pr
   return data || [];
 }
 
+// Haircut Recommendations
+export async function saveHaircutRecommendation(data: {
+  user_email: string;
+  face_shape: string;
+  cut_name: string;
+  description: string;
+  why_it_works: string;
+  styling_tips: string;
+  image_url: string;
+}): Promise<boolean> {
+  const { error } = await supabase
+    .from('haircut_recommendations')
+    .insert({
+      user_email: data.user_email,
+      face_shape: data.face_shape,
+      cut_name: data.cut_name,
+      description: data.description,
+      why_it_works: data.why_it_works,
+      styling_tips: data.styling_tips,
+      image_url: data.image_url,
+      created_at: new Date().toISOString()
+    });
+
+  if (error) {
+    console.error('Error saving haircut recommendation:', error);
+    return false;
+  }
+
+  return true;
+}
+
+export async function getHaircutRecommendations(userEmail: string, limit: number = 10) {
+  const { data, error } = await supabase
+    .from('haircut_recommendations')
+    .select('*')
+    .eq('user_email', userEmail)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error('Error fetching haircut recommendations:', error);
+    return [];
+  }
+
+  return data || [];
+}
+
 // Outfits
 export async function saveOutfit(outfit: OutfitInsert): Promise<Outfit | null> {
   const { data, error } = await supabase

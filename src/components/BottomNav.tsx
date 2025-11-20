@@ -1,4 +1,4 @@
-import { Home, Heart, Scissors, Shirt, User } from "lucide-react";
+import { Home, Heart, Scissors, Shirt, User, Bookmark } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 interface BottomNavProps {
@@ -11,7 +11,7 @@ const BottomNav = ({ activeTab, onTabChange }: BottomNavProps) => {
 
   const tabs = [
     { id: "home", icon: Home, label: "Home", path: "/dashboard" },
-    { id: "skin", icon: Heart, label: "Skin", path: "/skin" },
+    { id: "saved", icon: Bookmark, label: "Salvos", path: "/my-saved" },
     { id: "hair", icon: Scissors, label: "Hair", path: "/hair" },
     { id: "style", icon: Shirt, label: "Style", path: "/style" },
     { id: "profile", icon: User, label: "Perfil", path: "/profile" },

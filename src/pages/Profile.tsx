@@ -15,7 +15,7 @@ const Profile = () => {
 
   const stats = [
     { label: "Dias de Glow", value: profile?.stats.glowDays || 0, color: "primary" },
-    { label: "Check-ins", value: profile?.stats.checkIns || 0, color: "secondary" },
+    { label: "Análises", value: profile?.stats.checkIns || 0, color: "secondary" },
     { label: "Looks criados", value: profile?.stats.looksCreated || 0, color: "accent" },
   ];
 
@@ -28,7 +28,7 @@ const Profile = () => {
     },
     { 
       icon: Sparkles, 
-      label: "10 check-ins", 
+      label: "10 análises", 
       color: "secondary",
       unlocked: (profile?.stats.checkIns || 0) >= 10
     },
@@ -92,7 +92,7 @@ const Profile = () => {
         <div className="grid grid-cols-3 gap-3">
           {stats.map((stat, index) => (
             <Card key={index} className="p-4 text-center shadow-soft border-border/50 bg-card/50 backdrop-blur-sm">
-              <div className={`text-2xl font-bold bg-gradient-${stat.color} bg-clip-text text-transparent`}>
+              <div className="text-2xl font-bold text-foreground">
                 {stat.value}
               </div>
               <p className="text-xs text-muted-foreground mt-1">{stat.label}</p>

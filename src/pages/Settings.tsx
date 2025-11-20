@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, User, Camera, Trash2, LogOut, RefreshCw, Bell, Moon, Sun } from "lucide-react";
+import { ArrowLeft, User, Camera, Trash2, LogOut, RefreshCw, Bell, Moon, Sun, Users } from "lucide-react";
+import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useUserStore } from "@/lib/user-store";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/lib/supabase";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,10 +25,40 @@ const Settings = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const profile = useUserStore((state) => state.profile);
+  const setProfile = useUserStore((state) => state.setProfile);
   const clearProfile = useUserStore((state) => state.clearProfile);
+  const { theme, setTheme } = useTheme();
   
   const [notifications, setNotifications] = useState(true);
-  const [darkMode, setDarkMode] = useState(false);
+  const [showGenderDialog, setShowGenderDialog] = useState(false);
+
+  const handleUpdateGender = async (gender: "masculino" | "feminino") => {
+    if (!profile?.email) return;
+    
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ gender })
+        .eq('email', profile.email);
+      
+      if (error) throw error;
+      
+      setProfile({ ...profile, gender });
+      setShowGenderDialog(false);
+      
+      toast({
+        title: "Gênero atualizado! ✅",
+        description: `Perfil atualizado para ${gender}`,
+      });
+    } catch (error) {
+      console.error("Erro ao atualizar gênero:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar o gênero",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleLogout = () => {
     clearProfile();
@@ -120,6 +152,27 @@ const Settings = () => {
           <Card className="p-5 shadow-soft border-border/50 bg-card/50 backdrop-blur-sm space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
+                <Users className="w-5 h-5 text-muted-foreground" />
+                <div>
+                  <Label className="text-base font-medium">
+                    Gênero
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    {profile?.gender === "masculino" ? "Masculino" : profile?.gender === "feminino" ? "Feminino" : "Não definido"}
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowGenderDialog(true)}
+              >
+                Alterar
+              </Button>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
                 <Bell className="w-5 h-5 text-muted-foreground" />
                 <div>
                   <Label htmlFor="notifications" className="text-base font-medium">
@@ -139,7 +192,7 @@ const Settings = () => {
 
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                {darkMode ? (
+                {theme === "dark" ? (
                   <Moon className="w-5 h-5 text-muted-foreground" />
                 ) : (
                   <Sun className="w-5 h-5 text-muted-foreground" />
@@ -155,8 +208,8 @@ const Settings = () => {
               </div>
               <Switch
                 id="darkMode"
-                checked={darkMode}
-                onCheckedChange={setDarkMode}
+                checked={theme === "dark"}
+                onCheckedChange={(checked) => setTheme(checked ? "dark" : "light")}
               />
             </div>
           </Card>
@@ -242,6 +295,37 @@ const Settings = () => {
           </Card>
         </div>
       </div>
+
+      {/* Dialog de atualização de gênero */}
+      <AlertDialog open={showGenderDialog} onOpenChange={setShowGenderDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Atualizar Gênero</AlertDialogTitle>
+            <AlertDialogDescription>
+              Selecione seu gênero para recomendações personalizadas
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2 py-4">
+            <Button
+              onClick={() => handleUpdateGender("masculino")}
+              variant={profile?.gender === "masculino" ? "default" : "outline"}
+              className="w-full"
+            >
+              Masculino
+            </Button>
+            <Button
+              onClick={() => handleUpdateGender("feminino")}
+              variant={profile?.gender === "feminino" ? "default" : "outline"}
+              className="w-full"
+            >
+              Feminino
+            </Button>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

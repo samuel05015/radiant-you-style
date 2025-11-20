@@ -44,7 +44,7 @@ const MyProgress = () => {
     {
       id: 4,
       title: "Check-in Master",
-      description: "10 check-ins realizados",
+      description: "10 análises realizadas",
       icon: "💯",
       unlocked: (profile?.stats.checkIns || 0) >= 10,
     },
@@ -103,7 +103,7 @@ const MyProgress = () => {
             <div className="text-3xl font-bold text-secondary-foreground">
               {profile?.stats.checkIns || 0}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Check-ins</p>
+            <p className="text-xs text-muted-foreground mt-1">Análises</p>
           </Card>
           
           <Card className="p-4 text-center shadow-soft border-accent/20 bg-accent/10 backdrop-blur-sm">

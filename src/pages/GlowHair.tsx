@@ -1,26 +1,35 @@
-import { useState } from "react";
-import { Scissors, Sparkles, Wind, Droplets, Sun, ChevronRight, Loader2 } from "lucide-react";
+import { useState, useRef } from "react";
+import { Scissors, Sparkles, Wind, Droplets, Sun, ChevronRight, Loader2, ExternalLink, ShoppingCart, Camera, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import BottomNav from "@/components/BottomNav";
-import { getHairRecommendations, HairRecommendation } from "@/lib/ai-service";
+import { getHairProductRecommendations, HairProductRecommendation, getHaircutRecommendation, HaircutRecommendation, analyzeFaceImage } from "@/lib/ai-service";
 import { useUserStore } from "@/lib/user-store";
 import { useToast } from "@/hooks/use-toast";
-import { saveHairCheckIn } from "@/lib/database";
+import { saveHairCheckIn, saveHaircutRecommendation } from "@/lib/database";
+import { supabase } from "@/lib/supabase";
 
 const GlowHair = () => {
   const { toast } = useToast();
   const profile = useUserStore((state) => state.profile);
   const updateStats = useUserStore((state) => state.updateStats);
+  const setProfile = useUserStore((state) => state.setProfile);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [activeTab, setActiveTab] = useState("hair");
   const [hairCondition, setHairCondition] = useState("");
   const [showRecommendation, setShowRecommendation] = useState(false);
   const [isLoadingRecommendation, setIsLoadingRecommendation] = useState(false);
-  const [aiRecommendation, setAiRecommendation] = useState<HairRecommendation | null>(null);
+  const [productRecommendations, setProductRecommendations] = useState<HairProductRecommendation | null>(null);
+  const [haircutRecommendation, setHaircutRecommendation] = useState<HaircutRecommendation | null>(null);
+  const [isLoadingHaircut, setIsLoadingHaircut] = useState(false);
+  const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [showHaircutResult, setShowHaircutResult] = useState(false);
+  const [isSavingHaircut, setIsSavingHaircut] = useState(false);
 
   // Formato do rosto do usuário (detectado pela IA no onboarding)
   const userFaceShape = profile?.faceShape || "oval";
@@ -179,22 +188,33 @@ const GlowHair = () => {
     setIsLoadingRecommendation(true);
     
     try {
-      const result = await getHairRecommendations(
+      const result = await getHairProductRecommendations(
         hairCondition,
-        userFaceShape,
         profile?.gender || "feminino"
       );
       
-      setAiRecommendation(result);
+      setProductRecommendations(result);
       setShowRecommendation(true);
+      
+      // Buscar recomendação de corte também
+      try {
+        const haircutResult = await getHaircutRecommendation(
+          profile?.faceShape || "oval",
+          hairCondition,
+          profile?.gender || "feminino"
+        );
+        setHaircutRecommendation(haircutResult);
+      } catch (haircutError) {
+        console.error("Erro ao buscar corte:", haircutError);
+      }
       
       // Salvar check-in no Supabase
       try {
         await saveHairCheckIn({
           user_email: profile.email,
           condition: hairCondition,
-          recommendations: result.recommendations.join(', '),
-          styling_tips: result.stylingTips?.join(', ') || null,
+          recommendations: result.products.map(p => p.name).join(', '),
+          styling_tips: result.tips?.join(', ') || null,
         });
       } catch (dbError) {
         console.error("Erro ao salvar check-in:", dbError);
@@ -217,46 +237,173 @@ const GlowHair = () => {
         variant: "destructive",
       });
       
-      // Usar recomendação padrão
-      setAiRecommendation(getDefaultRecommendation());
       setShowRecommendation(true);
     } finally {
       setIsLoadingRecommendation(false);
     }
   };
 
-  const getDefaultRecommendation = (): HairRecommendation => {
-    const recommendations: Record<string, string[]> = {
-      frizzy: [
-        "Use leave-in anti-frizz",
-        "Evite secador no calor máximo",
-        "Aplique óleo nas pontas"
-      ],
-      oily: [
-        "Use shampoo a seco entre lavagens",
-        "Lave apenas as raízes",
-        "Evite produtos muito oleosos"
-      ],
-      dry: [
-        "Aplique máscara hidratante 2x por semana",
-        "Use óleo capilar diariamente",
-        "Evite lavagens frequentes"
-      ],
-      perfect: [
-        "Mantenha a rotina atual",
-        "Proteja dos danos térmicos",
-        "Hidrate regularmente"
-      ]
-    };
-
-    return {
-      condition: hairCondition,
-      recommendations: recommendations[hairCondition] || recommendations.perfect,
-      stylingTips: [`Cortes que favorecem rosto ${userFaceShape}`]
-    };
+  const handlePhotoCapture = () => {
+    fileInputRef.current?.click();
   };
 
-  const recommendation = aiRecommendation || getDefaultRecommendation();
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validar tipo de arquivo
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Arquivo inválido",
+        description: "Por favor, selecione uma imagem",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsAnalyzing(true);
+    
+    try {
+      // Converter para base64
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        try {
+          const base64String = reader.result as string;
+          setCapturedPhoto(base64String);
+
+          console.log("📸 Foto capturada, iniciando análise...");
+
+          // Analisar rosto com IA
+          const analysis = await analyzeFaceImage(base64String);
+          
+          console.log("✅ Análise completa:", analysis);
+
+          if (!profile?.email) {
+            throw new Error("Email do perfil não encontrado");
+          }
+
+          // Atualizar perfil no Supabase (apenas formato e tom)
+          const { error } = await supabase
+            .from('profiles')
+            .update({
+              faceShape: analysis.faceShape,
+              skinTone: analysis.skinTone
+            })
+            .eq('email', profile.email);
+
+          if (error) {
+            console.error("❌ Erro Supabase:", error);
+            // Continua mesmo com erro no Supabase
+          } else {
+            console.log("💾 Perfil atualizado no Supabase");
+          }
+
+          // Atualizar estado local (incluindo a foto)
+          await setProfile({
+            ...profile,
+            faceShape: analysis.faceShape,
+            skinTone: analysis.skinTone,
+            photoUrl: base64String,
+            analysisConfidence: analysis.confidence
+          });
+
+          console.log("🔍 Buscando recomendação de corte...");
+          console.log("Formato:", analysis.faceShape);
+          console.log("Gênero:", profile?.gender || "feminino");
+
+          // Buscar recomendação de corte
+          const haircutResult = await getHaircutRecommendation(
+            analysis.faceShape,
+            "perfect", // Usar condição padrão para cortes
+            profile?.gender || "feminino"
+          );
+          
+          console.log("✂️ Corte recomendado:", haircutResult);
+          
+          setHaircutRecommendation(haircutResult);
+          setShowHaircutResult(true);
+          setIsAnalyzing(false);
+
+          toast({
+            title: "Análise completa! ✨",
+            description: `Formato: ${analysis.faceShape} • Corte recomendado!`,
+          });
+        } catch (innerError) {
+          console.error("❌ Erro na análise:", innerError);
+          setIsAnalyzing(false);
+          toast({
+            title: "Erro ao analisar foto",
+            description: innerError instanceof Error ? innerError.message : "Tente novamente",
+            variant: "destructive",
+          });
+        }
+      };
+
+      reader.onerror = () => {
+        setIsAnalyzing(false);
+        toast({
+          title: "Erro ao ler arquivo",
+          description: "Tente novamente",
+          variant: "destructive",
+        });
+      };
+
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error("❌ Erro geral:", error);
+      toast({
+        title: "Erro ao processar foto",
+        description: "Tente novamente com outra foto",
+        variant: "destructive",
+      });
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleDeletePhoto = () => {
+    setCapturedPhoto(null);
+    setShowHaircutResult(false);
+    setHaircutRecommendation(null);
+  };
+
+  const handleSaveHaircut = async () => {
+    if (!haircutRecommendation || !profile?.email) return;
+
+    setIsSavingHaircut(true);
+    
+    try {
+      const success = await saveHaircutRecommendation({
+        user_email: profile.email,
+        face_shape: profile.faceShape || "oval",
+        cut_name: haircutRecommendation.cutName,
+        description: haircutRecommendation.description,
+        why_it_works: haircutRecommendation.whyItWorks,
+        styling_tips: haircutRecommendation.stylingTips.join('\n'),
+        image_url: haircutRecommendation.imageUrl
+      });
+
+      if (success) {
+        // Incrementar análises realizadas
+        updateStats({ checkIns: (profile.stats.checkIns || 0) + 1 });
+        
+        toast({
+          title: "Corte salvo! ✂️",
+          description: "Você pode ver suas recomendações salvas a qualquer momento",
+        });
+      } else {
+        throw new Error("Falha ao salvar");
+      }
+    } catch (error) {
+      console.error("Erro ao salvar corte:", error);
+      toast({
+        title: "Erro ao salvar",
+        description: "Tente novamente",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingHaircut(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-glow pb-24">
@@ -341,66 +488,114 @@ const GlowHair = () => {
               </Card>
             ) : (
               <>
-                {/* Recomendações */}
-                <Card className="p-6 shadow-glow border-secondary/30 bg-gradient-to-br from-secondary/10 to-accent/10 backdrop-blur-sm">
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-r from-secondary to-accent flex items-center justify-center shadow-medium">
-                        <Sparkles className="w-6 h-6 text-secondary-foreground" />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="text-xl font-semibold">Recomendações IA</h3>
-                        <p className="text-xs text-muted-foreground">
-                          🤖 Gemini AI • Rosto {userFaceShape} • {profile?.gender === "masculino" ? "👨" : "👩"}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="space-y-3">
-                      {recommendation.recommendations.map((tip, index) => (
-                        <div
-                          key={index}
-                          className="flex items-start gap-3 p-3 rounded-lg bg-card/50"
-                        >
-                          <div className="w-6 h-6 rounded-full bg-secondary/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                            <span className="text-xs font-semibold text-secondary-foreground">
-                              {index + 1}
-                            </span>
+                {/* Produtos Recomendados */}
+                {productRecommendations && (
+                  <>
+                    <Card className="p-6 shadow-glow border-secondary/30 bg-gradient-to-br from-secondary/10 to-accent/10 backdrop-blur-sm">
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded-full bg-gradient-to-r from-secondary to-accent flex items-center justify-center shadow-medium">
+                            <ShoppingCart className="w-6 h-6 text-secondary-foreground" />
                           </div>
-                          <p className="text-sm">{tip}</p>
+                          <div className="flex-1">
+                            <h3 className="text-xl font-semibold">Produtos Recomendados</h3>
+                            <p className="text-xs text-muted-foreground">
+                              🤖 Gemini AI • {productRecommendations.products.length} produtos ideais para você
+                            </p>
+                          </div>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                </Card>
 
-                {/* Sugestão de estilo baseada no rosto */}
-                <Card className="p-5 shadow-soft border-accent/20 bg-accent/5 backdrop-blur-sm">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center flex-shrink-0">
-                      <Scissors className="w-5 h-5 text-accent-foreground" />
-                    </div>
-                    <div className="space-y-2 flex-1">
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-semibold">Cortes ideais para seu rosto</h4>
-                        <span className="text-xs bg-accent/20 px-2 py-1 rounded-full">
-                          {userFaceShape}
-                        </span>
+                        <div className="space-y-4">
+                          {productRecommendations.products.map((product, index) => (
+                            <Card key={index} className="overflow-hidden border-border/50 hover:border-secondary/50 transition-all">
+                              <div className="p-4 space-y-3">
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1">
+                                    <h4 className="font-semibold text-base">{product.name}</h4>
+                                    <p className="text-sm text-muted-foreground">{product.brand}</p>
+                                  </div>
+                                  <span className="text-lg font-semibold text-secondary">{product.price}</span>
+                                </div>
+                                <p className="text-sm">{product.description}</p>
+                                <Button 
+                                  variant="outline" 
+                                  className="w-full gap-2"
+                                  onClick={() => window.open(product.buyUrl, '_blank')}
+                                >
+                                  <ShoppingCart className="w-4 h-4" />
+                                  Onde comprar
+                                  <ExternalLink className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            </Card>
+                          ))}
+                        </div>
                       </div>
-                      <p className="text-xs text-muted-foreground mb-2">
-                        Personalizados para formato de rosto {userFaceShape} e perfil {profile?.gender === "masculino" ? "masculino" : "feminino"}
-                      </p>
-                      {recommendation.stylingTips.map((tip, index) => (
-                        <p key={index} className="text-sm">• {tip}</p>
-                      ))}
-                    </div>
-                  </div>
-                </Card>
+                    </Card>
+
+                    {/* Corte Recomendado */}
+                    {haircutRecommendation && (
+                      <Card className="overflow-hidden shadow-glow border-primary/30 bg-gradient-to-br from-primary/10 to-secondary/10">
+                        <div className="relative h-64 w-full">
+                          <img 
+                            src={haircutRecommendation.imageUrl} 
+                            alt={haircutRecommendation.cutName}
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                          <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
+                            <h3 className="text-2xl font-bold mb-1">{haircutRecommendation.cutName}</h3>
+                            <p className="text-sm opacity-90">✂️ Recomendado pela IA para você</p>
+                          </div>
+                        </div>
+                        <div className="p-5 space-y-4">
+                          <div>
+                            <h4 className="font-semibold text-sm text-muted-foreground mb-1">Como é o corte</h4>
+                            <p className="text-sm">{haircutRecommendation.description}</p>
+                          </div>
+                          <div>
+                            <h4 className="font-semibold text-sm text-muted-foreground mb-1">Por que funciona para você</h4>
+                            <p className="text-sm">{haircutRecommendation.whyItWorks}</p>
+                          </div>
+                          <div>
+                            <h4 className="font-semibold text-sm text-muted-foreground mb-2">Dicas de finalização</h4>
+                            <div className="space-y-1">
+                              {haircutRecommendation.stylingTips.map((tip, index) => (
+                                <p key={index} className="text-sm">• {tip}</p>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </Card>
+                    )}
+
+                    {/* Dicas de cuidado */}
+                    {productRecommendations.tips && productRecommendations.tips.length > 0 && (
+                      <Card className="p-5 shadow-soft border-accent/20 bg-accent/5 backdrop-blur-sm">
+                        <div className="flex items-start gap-3">
+                          <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center flex-shrink-0">
+                            <Sparkles className="w-5 h-5 text-accent-foreground" />
+                          </div>
+                          <div className="space-y-2 flex-1">
+                            <h4 className="font-semibold">Dicas de Cuidado</h4>
+                            <p className="text-xs text-muted-foreground mb-2">
+                              Recomendações personalizadas para {productRecommendations.condition}
+                            </p>
+                            {productRecommendations.tips.map((tip, index) => (
+                              <p key={index} className="text-sm">• {tip}</p>
+                            ))}
+                          </div>
+                        </div>
+                      </Card>
+                    )}
+                  </>
+                )}
 
                 <Button
                   onClick={() => {
                     setShowRecommendation(false);
-                    setAiRecommendation(null);
+                    setProductRecommendations(null);
+                    setHaircutRecommendation(null);
                   }}
                   variant="outline"
                   className="w-full"
@@ -409,122 +604,192 @@ const GlowHair = () => {
                 </Button>
               </>
             )}
-
-            {/* Produtos Recomendados */}
-            <div className="space-y-3">
-              <h3 className="text-lg font-semibold px-1">Produtos para você</h3>
-              
-              <Card className="p-4 shadow-soft border-border/50 bg-card/50 backdrop-blur-sm hover:shadow-medium transition-all cursor-pointer">
-                <div className="flex gap-3">
-                  <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-secondary/20 to-accent/20 flex-shrink-0" />
-                  <div className="flex-1">
-                    <h4 className="font-semibold text-sm mb-1">Leave-in Nutritivo</h4>
-                    <p className="text-xs text-muted-foreground mb-2">
-                      Perfeito para seu tipo de cabelo
-                    </p>
-                    <Button size="sm" variant="outline" className="h-7 text-xs">
-                      Ver opções →
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            </div>
           </TabsContent>
 
           {/* Tab: Cortes para Você */}
           <TabsContent value="cortes" className="space-y-6">
-            {/* Info do formato do rosto detectado pela IA */}
-            <Card className="p-6 shadow-medium border-primary/20 bg-gradient-primary/5 backdrop-blur-sm">
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-gradient-primary flex items-center justify-center shadow-soft">
-                    <Sparkles className="w-6 h-6 text-primary-foreground" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold">Rosto {currentFaceShape.shape}</h3>
-                    <p className="text-xs text-muted-foreground">
-                      Detectado automaticamente pela IA ✨
-                    </p>
-                  </div>
-                  {profile?.analysisConfidence && (
-                    <div className="text-right">
-                      <p className="text-sm font-medium text-primary">{profile.analysisConfidence}%</p>
-                      <p className="text-xs text-muted-foreground">precisão</p>
-                    </div>
-                  )}
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  {currentFaceShape.description}
-                </p>
-              </div>
-            </Card>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              capture="user"
+              className="hidden"
+              onChange={handleFileChange}
+            />
 
-            {/* Cortes Recomendados */}
-            <div className="space-y-3">
-              <h3 className="text-lg font-semibold px-1">Cortes que valorizam você ✨</h3>
-              
-              {currentFaceShape.cuts.map((cut, index) => (
-                <Card
-                  key={index}
-                  className="p-5 shadow-soft border-border/50 bg-card/50 backdrop-blur-sm hover:shadow-medium transition-all cursor-pointer group"
-                >
-                  <div className="space-y-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-base mb-1 group-hover:text-primary transition-colors">
-                          {cut.name}
-                        </h4>
-                        <p className="text-sm text-muted-foreground">
-                          {cut.description}
-                        </p>
+            {!showHaircutResult ? (
+              <>
+                {/* Captura de foto */}
+                <Card className="p-6 shadow-medium border-primary/20 bg-gradient-to-br from-primary/5 to-secondary/5 backdrop-blur-sm">
+                  <div className="space-y-4">
+                    <div className="text-center space-y-2">
+                      <div className="w-16 h-16 rounded-full bg-gradient-to-r from-primary to-secondary flex items-center justify-center mx-auto shadow-soft">
+                        <Camera className="w-8 h-8 text-primary-foreground" />
                       </div>
-                      <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
-                    </div>
-                    
-                    <div className="flex items-start gap-2 p-3 rounded-lg bg-secondary/5 border border-secondary/10">
-                      <Sparkles className="w-4 h-4 text-secondary-foreground mt-0.5 flex-shrink-0" />
-                      <p className="text-xs text-muted-foreground">
-                        <span className="font-medium text-foreground">Dica: </span>
-                        {cut.tips}
+                      <h2 className="text-xl font-semibold">Tire uma foto do seu rosto</h2>
+                      <p className="text-sm text-muted-foreground">
+                        A IA vai analisar seu formato de rosto e recomendar o corte ideal
                       </p>
+                    </div>
+
+                    {capturedPhoto && (
+                      <div className="relative">
+                        <img
+                          src={capturedPhoto}
+                          alt="Sua foto"
+                          className="w-full h-64 object-cover rounded-lg"
+                        />
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="absolute top-2 right-2"
+                          onClick={handleDeletePhoto}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    )}
+
+                    <Button
+                      onClick={handlePhotoCapture}
+                      disabled={isAnalyzing}
+                      className="w-full gap-2"
+                      size="lg"
+                    >
+                      {isAnalyzing ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          Analisando...
+                        </>
+                      ) : (
+                        <>
+                          <Camera className="w-5 h-5" />
+                          {capturedPhoto ? "Tirar nova foto" : "Tirar foto"}
+                        </>
+                      )}
+                    </Button>
+
+                    <div className="text-xs text-muted-foreground text-center space-y-1">
+                      <p>✨ A foto será analisada por IA</p>
+                      <p>📸 A foto anterior será substituída</p>
+                      <p>🔒 Seus dados estão seguros</p>
                     </div>
                   </div>
                 </Card>
-              ))}
-            </div>
 
-            {/* O que evitar */}
-            <Card className="p-5 shadow-soft border-accent/20 bg-accent/5 backdrop-blur-sm">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center flex-shrink-0">
-                  <Sparkles className="w-5 h-5 text-accent-foreground" />
-                </div>
-                <div className="space-y-1">
-                  <h4 className="font-semibold">⚠️ O que evitar</h4>
-                  <p className="text-sm text-muted-foreground">
-                    {currentFaceShape.avoid}
-                  </p>
-                </div>
-              </div>
-            </Card>
+                {profile?.faceShape && (
+                  <Card className="p-5 shadow-soft border-border/50 bg-card/50 backdrop-blur-sm">
+                    <div className="flex items-center gap-3">
+                      <Sparkles className="w-10 h-10 text-primary" />
+                      <div>
+                        <h4 className="font-semibold">Última análise</h4>
+                        <p className="text-sm text-muted-foreground">
+                          Formato: {profile.faceShape} • Tom: {profile.skinTone}
+                        </p>
+                        {profile.analysisConfidence && (
+                          <p className="text-xs text-muted-foreground">
+                            Precisão: {profile.analysisConfidence}%
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </Card>
+                )}
+              </>
+            ) : (
+              <>
+                {/* Resultado do corte recomendado */}
+                {haircutRecommendation && (
+                  <Card className="overflow-hidden shadow-glow border-primary/30">
+                    <div className="relative h-80 w-full">
+                      <img 
+                        src={haircutRecommendation.imageUrl} 
+                        alt={haircutRecommendation.cutName}
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                      <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Scissors className="w-5 h-5" />
+                          <span className="text-sm font-medium">Recomendado pela IA</span>
+                        </div>
+                        <h2 className="text-3xl font-bold mb-2">{haircutRecommendation.cutName}</h2>
+                        <p className="text-sm opacity-90">
+                          Formato de rosto: {profile?.faceShape || "oval"}
+                        </p>
+                      </div>
+                    </div>
 
-            {/* CTA para consulta */}
-            <Card className="p-6 text-center shadow-soft border-primary/20 bg-gradient-primary/5 backdrop-blur-sm">
-              <div className="space-y-4">
-                <div className="w-16 h-16 mx-auto rounded-full bg-gradient-primary flex items-center justify-center shadow-glow animate-glow-pulse">
-                  <Scissors className="w-8 h-8 text-primary-foreground" />
-                </div>
-                <div className="space-y-2">
-                  <h4 className="font-semibold">Pronta para mudar?</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Leve essas sugestões para seu cabeleireiro de confiança!
-                  </p>
-                </div>
-                <Button className="bg-gradient-to-r from-secondary to-accent hover:opacity-90 transition-opacity shadow-medium">
-                  Salvar minhas sugestões
-                </Button>
-              </div>
-            </Card>
+                    <div className="p-6 space-y-5">
+                      <div>
+                        <h4 className="font-semibold mb-2 flex items-center gap-2">
+                          <Sparkles className="w-4 h-4 text-primary" />
+                          Como é o corte
+                        </h4>
+                        <p className="text-sm text-muted-foreground">{haircutRecommendation.description}</p>
+                      </div>
+
+                      <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
+                        <h4 className="font-semibold mb-2 text-primary">Por que funciona para você</h4>
+                        <p className="text-sm">{haircutRecommendation.whyItWorks}</p>
+                      </div>
+
+                      <div>
+                        <h4 className="font-semibold mb-3">Dicas de finalização</h4>
+                        <div className="space-y-2">
+                          {haircutRecommendation.stylingTips.map((tip, index) => (
+                            <div key={index} className="flex items-start gap-2">
+                              <div className="w-6 h-6 rounded-full bg-secondary/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                <span className="text-xs font-semibold">{index + 1}</span>
+                              </div>
+                              <p className="text-sm">{tip}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <Button
+                        onClick={handleSaveHaircut}
+                        disabled={isSavingHaircut}
+                        className="w-full gap-2"
+                        size="lg"
+                      >
+                        {isSavingHaircut ? (
+                          <>
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                            Salvando...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="w-5 h-5" />
+                            Salvar esta recomendação
+                          </>
+                        )}
+                      </Button>
+
+                      <div className="flex gap-3">
+                        <Button
+                          variant="outline"
+                          onClick={() => setShowHaircutResult(false)}
+                          className="flex-1"
+                        >
+                          Tirar nova foto
+                        </Button>
+                        <Button
+                          onClick={handlePhotoCapture}
+                          variant="secondary"
+                          className="flex-1 gap-2"
+                        >
+                          <Camera className="w-4 h-4" />
+                          Nova análise
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                )}
+              </>
+            )}
+
           </TabsContent>
         </Tabs>
       </div>
