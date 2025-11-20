@@ -1453,10 +1453,9 @@ Responda em JSON:
 {
   "products": [
     {
-      "name": "Nome do Produto",
+      "name": "Nome COMPLETO do Produto",
       "brand": "Marca",
       "description": "Descrição curta do produto e benefícios",
-      "buyUrl": "https://www.example.com",
       "price": "R$ XX,XX"
     }
   ],
@@ -1472,10 +1471,17 @@ Responda em JSON:
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
+      
+      // Adicionar URLs de busca do Google para cada produto
+      const productsWithUrls = parsed.products.map((p: any) => ({
+        ...p,
+        buyUrl: `https://www.google.com/search?q=${encodeURIComponent(p.brand + ' ' + p.name + ' comprar')}`
+      }));
+      
       return {
         skinType,
         concerns,
-        products: parsed.products || [],
+        products: productsWithUrls,
         tips: parsed.tips || []
       };
     }
@@ -1496,21 +1502,21 @@ function simulateSkinProducts(skinType: string, concerns: string[]): SkinProduct
         name: "Effaclar Gel de Limpeza",
         brand: "La Roche-Posay",
         description: "Gel de limpeza para pele oleosa que remove impurezas sem ressecar",
-        buyUrl: "https://www.laroche-posay.com.br",
+        buyUrl: "https://www.google.com/search?q=" + encodeURIComponent("La Roche-Posay Effaclar Gel de Limpeza comprar"),
         price: "R$ 89,90"
       },
       {
         name: "Normaderm Phytosolution",
         brand: "Vichy",
         description: "Hidratante intensivo para pele oleosa com ácido salicílico",
-        buyUrl: "https://www.vichy.com.br",
+        buyUrl: "https://www.google.com/search?q=" + encodeURIComponent("Vichy Normaderm Phytosolution comprar"),
         price: "R$ 119,90"
       },
       {
         name: "Niacinamide 10% + Zinc 1%",
         brand: "The Ordinary",
         description: "Sérum que reduz oleosidade e minimiza poros",
-        buyUrl: "https://www.sephora.com.br",
+        buyUrl: "https://www.google.com/search?q=" + encodeURIComponent("The Ordinary Niacinamide 10% + Zinc 1% comprar"),
         price: "R$ 79,90"
       }
     );
@@ -1520,21 +1526,21 @@ function simulateSkinProducts(skinType: string, concerns: string[]): SkinProduct
         name: "Toleriane Dermo-Limpador",
         brand: "La Roche-Posay",
         description: "Limpador suave que hidrata enquanto limpa",
-        buyUrl: "https://www.laroche-posay.com.br",
+        buyUrl: "https://www.google.com/search?q=" + encodeURIComponent("La Roche-Posay Toleriane Dermo-Limpador comprar"),
         price: "R$ 94,90"
       },
       {
         name: "Hyalu B5 Sérum",
         brand: "La Roche-Posay",
         description: "Sérum com ácido hialurônico para hidratação profunda",
-        buyUrl: "https://www.laroche-posay.com.br",
+        buyUrl: "https://www.google.com/search?q=" + encodeURIComponent("La Roche-Posay Hyalu B5 Sérum comprar"),
         price: "R$ 189,90"
       },
       {
         name: "Natural Moisturizing Factors + HA",
         brand: "The Ordinary",
         description: "Creme hidratante com fatores naturais de hidratação",
-        buyUrl: "https://www.sephora.com.br",
+        buyUrl: "https://www.google.com/search?q=" + encodeURIComponent("The Ordinary Natural Moisturizing Factors + HA comprar"),
         price: "R$ 59,90"
       }
     );
@@ -1544,21 +1550,21 @@ function simulateSkinProducts(skinType: string, concerns: string[]): SkinProduct
         name: "Sabonete Facial Suave",
         brand: "Neutrogena",
         description: "Limpeza eficaz para todos os tipos de pele",
-        buyUrl: "https://www.neutrogena.com.br",
+        buyUrl: "https://www.google.com/search?q=" + encodeURIComponent("Neutrogena Sabonete Facial Suave comprar"),
         price: "R$ 34,90"
       },
       {
         name: "Hydra Genius Aloe Water",
         brand: "L'Oréal Paris",
         description: "Hidratante leve com extrato de aloe vera",
-        buyUrl: "https://www.lorealparis.com.br",
+        buyUrl: "https://www.google.com/search?q=" + encodeURIComponent("L'Oréal Paris Hydra Genius Aloe Water comprar"),
         price: "R$ 49,90"
       },
       {
         name: "Protetor Solar FPS 50",
         brand: "Cetaphil",
         description: "Proteção solar diária para todos os tipos de pele",
-        buyUrl: "https://www.cetaphil.com.br",
+        buyUrl: "https://www.google.com/search?q=" + encodeURIComponent("Cetaphil Protetor Solar FPS 50 comprar"),
         price: "R$ 79,90"
       }
     );

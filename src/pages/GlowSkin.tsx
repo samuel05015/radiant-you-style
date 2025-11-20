@@ -377,10 +377,11 @@ const GlowSkin = () => {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="w-full"
+                            className="w-full gap-2"
                             onClick={() => window.open(product.buyUrl, '_blank')}
                           >
-                            Ver produto
+                            <ShoppingBag className="w-4 h-4" />
+                            Onde comprar
                           </Button>
                         </div>
                       </Card>
