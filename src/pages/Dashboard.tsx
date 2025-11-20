@@ -7,6 +7,7 @@ import BottomNav from "@/components/BottomNav";
 import { useUserStore } from "@/lib/user-store";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
+import UsageStats from "@/components/UsageStats";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -207,6 +208,12 @@ const Dashboard = () => {
               </div>
             </div>
           </Card>
+        </div>
+
+        {/* Estatísticas de Uso */}
+        <div className="space-y-3">
+          <h2 className="text-lg font-semibold px-1">Suas Estatísticas</h2>
+          <UsageStats />
         </div>
 
         {/* Motivação do dia */}

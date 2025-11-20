@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Shirt, Plus, Camera, Sparkles, Trash2 } from "lucide-react";
+import { Shirt, Plus, Camera, Sparkles, Trash2, Search } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import BottomNav from "@/components/BottomNav";
 import { useUserStore } from "@/lib/user-store";
 import { getClosetItems, saveClosetItem } from "@/lib/database";
@@ -33,6 +34,7 @@ const GlowStyle = () => {
   const [categoryToAdd, setCategoryToAdd] = useState<string | null>(null);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showAllPieces, setShowAllPieces] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const isMale = profile?.gender === "masculino";
   const categories = isMale 
@@ -206,33 +208,17 @@ const GlowStyle = () => {
       {/* Header */}
       <div className="bg-card/80 backdrop-blur-sm border-b border-border sticky top-0 z-10">
         <div className="max-w-md mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-gradient-accent flex items-center justify-center shadow-soft">
-                <Shirt className="w-6 h-6 text-accent-foreground" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold">Glow Style</h1>
-                <p className="text-sm text-muted-foreground">Seu closet digital</p>
-              </div>
+          <div className="flex flex-col items-center text-center space-y-4">
+            <div className="w-12 h-12 rounded-full bg-gradient-primary flex items-center justify-center shadow-soft">
+              <Shirt className="w-6 h-6 text-white" />
             </div>
-            
-            <label className="cursor-pointer" onClick={() => console.log("📘 Label clicado (header)")}>              <div className="w-10 h-10 rounded-full bg-gradient-accent flex items-center justify-center shadow-soft hover:shadow-medium transition-all">
-                <Plus className="w-5 h-5 text-accent-foreground" />
-              </div>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="hidden"
-                onClick={(e) => console.log("📁 Input file clicado (header)", e)}
-              />
-            </label>
-          </div>
-
-          {/* Stats */}
-          <div className="mt-4 flex gap-4 text-sm">
             <div>
+              <h1 className="text-2xl font-bold">Glow Style</h1>
+              <p className="text-sm text-muted-foreground">Seu closet digital</p>
+            </div>
+
+            {/* Stats */}
+            <div className="text-sm">
               <span className="text-muted-foreground">Total: </span>
               <span className="font-semibold">{pieces.length} {pieces.length === 1 ? 'peça' : 'peças'}</span>
             </div>
@@ -242,13 +228,24 @@ const GlowStyle = () => {
 
       {/* Content */}
       <div className="max-w-md mx-auto px-6 py-6 space-y-6">
+        {/* Barra de busca */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input 
+            placeholder="Buscar por cor, categoria ou descrição..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+
         {/* Look Perfeito CTA */}
-        <Card className="p-6 shadow-glow border-accent/30 bg-gradient-to-br from-accent/10 to-primary/10 backdrop-blur-sm overflow-hidden relative">
-          <div className="absolute -top-10 -right-10 w-32 h-32 bg-gradient-accent opacity-20 rounded-full blur-3xl" />
+        <Card className="p-6 shadow-glow border-primary/30 bg-gradient-to-br from-primary/10 to-secondary/10 backdrop-blur-sm overflow-hidden relative">
+          <div className="absolute -top-10 -right-10 w-32 h-32 bg-gradient-primary opacity-20 rounded-full blur-3xl" />
           <div className="relative space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-14 h-14 rounded-full bg-gradient-accent flex items-center justify-center shadow-medium animate-glow-pulse">
-                <Sparkles className="w-7 h-7 text-accent-foreground" />
+              <div className="w-14 h-14 rounded-full bg-gradient-primary flex items-center justify-center shadow-medium animate-glow-pulse">
+                <Sparkles className="w-7 h-7 text-white" />
               </div>
               <div>
                 <h3 className="text-xl font-semibold">Look Perfeito</h3>
@@ -257,7 +254,7 @@ const GlowStyle = () => {
                 </p>
               </div>
             </div>
-            <Button className="w-full bg-gradient-accent hover:opacity-90 transition-opacity shadow-medium" size="lg" onClick={() => navigate("/look-perfeito")}>
+            <Button className="w-full bg-gradient-primary hover:opacity-90 transition-opacity shadow-medium text-white" size="lg" onClick={() => navigate("/look-perfeito")}>
               Criar look perfeito ✨
             </Button>
           </div>
@@ -374,7 +371,22 @@ const GlowStyle = () => {
             <>
               <div className="grid grid-cols-3 gap-3">
                 {pieces
-                  .filter(piece => !selectedCategory || piece.category === selectedCategory)
+                  .filter(piece => {
+                    // Filtro por categoria
+                    if (selectedCategory && piece.category !== selectedCategory) return false;
+                    
+                    // Filtro por busca
+                    if (searchTerm) {
+                      const term = searchTerm.toLowerCase();
+                      return (
+                        piece.category?.toLowerCase().includes(term) ||
+                        piece.color?.toLowerCase().includes(term) ||
+                        piece.description?.toLowerCase().includes(term)
+                      );
+                    }
+                    
+                    return true;
+                  })
                   .slice(0, showAllPieces ? undefined : ITEMS_PER_PAGE)
                   .map((piece) => (
                 <Card

@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
-import { Trash2, Sparkles, Scissors, ChevronLeft } from "lucide-react";
+import { Trash2, Sparkles, Scissors, ChevronLeft, Star, Share2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUserStore } from "@/lib/user-store";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
-import { getHaircutRecommendations } from "@/lib/database";
+import { getHaircutRecommendations, toggleOutfitFavorite, recordOutfitUsage } from "@/lib/database";
 import { useNavigate } from "react-router-dom";
 import BottomNav from "@/components/BottomNav";
 
@@ -21,6 +21,7 @@ const MySaved = () => {
   const [savedHaircuts, setSavedHaircuts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [closetItems, setClosetItems] = useState<any[]>([]);
+  const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
 
   useEffect(() => {
     loadSavedItems();
@@ -62,7 +63,14 @@ const MySaved = () => {
         .order('created_at', { ascending: false });
 
       if (outfitsError) throw outfitsError;
-      setSavedOutfits(outfits || []);
+      
+      // Adicionar campo is_favorite se não existir
+      const outfitsWithFavorites = (outfits || []).map(outfit => ({
+        ...outfit,
+        is_favorite: outfit.is_favorite ?? false
+      }));
+      
+      setSavedOutfits(outfitsWithFavorites);
 
       // Carregar cortes salvos usando email
       const haircuts = await getHaircutRecommendations(profile.email);
@@ -87,6 +95,63 @@ const MySaved = () => {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleToggleFavorite = async (outfitId: string, currentState: boolean) => {
+    try {
+      await toggleOutfitFavorite(outfitId, !currentState);
+      
+      setSavedOutfits(savedOutfits.map(outfit => 
+        outfit.id === outfitId 
+          ? { ...outfit, is_favorite: !currentState }
+          : outfit
+      ));
+
+      toast({
+        title: !currentState ? "Adicionado aos favoritos ⭐" : "Removido dos favoritos",
+        description: !currentState ? "Look marcado como favorito" : "Look desmarcado",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar favorito",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleShareOutfit = async (outfit: any) => {
+    const shareText = `✨ Meu Look Perfeito ✨\n\n📅 Ocasião: ${outfit.occasion}\n👕 Top: ${outfit.top}\n👖 Bottom: ${outfit.bottom}\n👟 Calçado: ${outfit.shoes}\n\nCriado com Radiant You 💖`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: `Look: ${outfit.occasion}`,
+          text: shareText,
+        });
+        toast({ title: "Compartilhado com sucesso! ✨" });
+      } else {
+        await navigator.clipboard.writeText(shareText);
+        toast({
+          title: "Copiado! 📋",
+          description: "Link copiado para a área de transferência",
+        });
+      }
+    } catch (error) {
+      console.error("Erro ao compartilhar:", error);
+    }
+  };
+
+  const handleUseOutfit = async (outfitId: string, profileId: string) => {
+    try {
+      await recordOutfitUsage(outfitId, profileId);
+      toast({
+        title: "Look registrado! 👗",
+        description: "Uso do look foi contabilizado nas estatísticas",
+      });
+    } catch (error) {
+      console.error("Erro ao registrar uso:", error);
     }
   };
 
@@ -185,6 +250,26 @@ const MySaved = () => {
 
           {/* Tab: Looks Salvos */}
           <TabsContent value="looks" className="space-y-4">
+            {!isLoading && savedOutfits.length > 0 && (
+              <div className="flex gap-2 mb-4">
+                <Button 
+                  variant={!showOnlyFavorites ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setShowOnlyFavorites(false)}
+                >
+                  Todos
+                </Button>
+                <Button 
+                  variant={showOnlyFavorites ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setShowOnlyFavorites(true)}
+                >
+                  <Star className="w-4 h-4 mr-1" />
+                  Favoritos
+                </Button>
+              </div>
+            )}
+            
             {isLoading ? (
               <Card className="p-8 text-center">
                 <p className="text-muted-foreground">Carregando...</p>
@@ -198,7 +283,9 @@ const MySaved = () => {
                 </Button>
               </Card>
             ) : (
-              savedOutfits.map((outfit) => (
+              savedOutfits
+                .filter(outfit => !showOnlyFavorites || outfit.is_favorite)
+                .map((outfit) => (
                 <Card key={outfit.id} className="overflow-hidden">
                   <div className="flex items-start justify-between p-5 pb-3">
                     <div className="flex-1">
@@ -211,14 +298,33 @@ const MySaved = () => {
                         })}
                       </p>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDeleteOutfit(outfit.id)}
-                      className="text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleToggleFavorite(outfit.id, outfit.is_favorite)}
+                      >
+                        <Star 
+                          className={`w-5 h-5 ${outfit.is_favorite ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground'}`} 
+                        />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleShareOutfit(outfit)}
+                        className="text-primary hover:text-primary"
+                      >
+                        <Share2 className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDeleteOutfit(outfit.id)}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
 
                   {/* Peças do Look */}
@@ -317,11 +423,31 @@ const MySaved = () => {
                   </div>
 
                   {outfit.reasoning && (
-                    <div className="px-5 pb-5 pt-3 border-t">
+                    <div className="px-5 pb-3 pt-3 border-t">
                       <p className="text-xs font-medium text-muted-foreground mb-1">💡 Por que funciona:</p>
                       <p className="text-sm text-muted-foreground">{outfit.reasoning}</p>
                     </div>
                   )}
+
+                  {/* Botão "Usei este look" */}
+                  <div className="px-5 pb-5">
+                    <Button 
+                      className="w-full bg-gradient-primary hover:opacity-90 transition-opacity text-white"
+                      onClick={async () => {
+                        const { data: profileData } = await supabase
+                          .from('profiles')
+                          .select('id')
+                          .eq('email', profile?.email)
+                          .single();
+                        
+                        if (profileData) {
+                          await handleUseOutfit(outfit.id, profileData.id);
+                        }
+                      }}
+                    >
+                      ✅ Usei este look hoje
+                    </Button>
+                  </div>
                 </Card>
               ))
             )}
@@ -405,7 +531,7 @@ const MySaved = () => {
         </Tabs>
       </div>
 
-      <BottomNav activeTab="style" onTabChange={(tab) => navigate(`/${tab}`)} />
+      <BottomNav activeTab="saved" onTabChange={(tab) => navigate(`/${tab}`)} />
     </div>
   );
 };

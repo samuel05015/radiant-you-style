@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { User, Camera, Palette, Heart, Calendar, Settings as SettingsIcon, LogOut, TrendingUp, Crown, Sparkles, Edit } from "lucide-react";
+import { User, Camera, Palette, Heart, Calendar, Settings as SettingsIcon, LogOut, TrendingUp, Crown, Sparkles, Edit, Bell } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -204,6 +204,24 @@ const Profile = () => {
           <h2 className="text-lg font-semibold px-1">Configurações</h2>
 
           <Card className="divide-y divide-border/50 shadow-soft border-border/50 bg-card/50 backdrop-blur-sm overflow-hidden">
+            <button 
+              onClick={() => navigate("/weekly-planner")}
+              className="w-full p-4 flex items-center gap-3 hover:bg-muted/50 transition-colors text-left"
+            >
+              <Calendar className="w-5 h-5 text-primary" />
+              <span className="flex-1 font-medium">Planejador Semanal</span>
+              <span className="text-muted-foreground">→</span>
+            </button>
+
+            <button 
+              onClick={() => navigate("/reminders")}
+              className="w-full p-4 flex items-center gap-3 hover:bg-muted/50 transition-colors text-left"
+            >
+              <Bell className="w-5 h-5 text-secondary" />
+              <span className="flex-1 font-medium">Lembretes</span>
+              <span className="text-muted-foreground">→</span>
+            </button>
+
             <button 
               onClick={() => navigate("/settings")}
               className="w-full p-4 flex items-center gap-3 hover:bg-muted/50 transition-colors text-left"

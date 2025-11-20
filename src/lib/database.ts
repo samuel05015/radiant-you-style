@@ -244,33 +244,6 @@ export async function getOutfits(profileId: string): Promise<Outfit[]> {
   return data || [];
 }
 
-export async function getFavoriteOutfits(profileId: string): Promise<Outfit[]> {
-  const { data, error } = await supabase
-    .from('outfits')
-    .select('*')
-    .eq('profile_id', profileId)
-    .eq('favorite', true)
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    console.error('Error fetching favorite outfits:', error);
-    return [];
-  }
-
-  return data || [];
-}
-
-export async function toggleOutfitFavorite(outfitId: string, favorite: boolean): Promise<void> {
-  const { error } = await supabase
-    .from('outfits')
-    .update({ favorite })
-    .eq('id', outfitId);
-
-  if (error) {
-    console.error('Error toggling outfit favorite:', error);
-  }
-}
-
 // Closet Items
 export async function saveClosetItem(item: ClosetItemInsert): Promise<ClosetItem | null> {
   const { data, error } = await supabase
@@ -364,4 +337,264 @@ export async function uploadImage(file: File, path: string): Promise<string | nu
     .getPublicUrl(filePath);
 
   return data.publicUrl;
+}
+
+// ========================================
+// MELHORIAS: Novas funções
+// ========================================
+
+// 1. FAVORITOS
+export async function toggleOutfitFavorite(outfitId: string, isFavorite: boolean): Promise<boolean> {
+  const { error } = await supabase
+    .from('outfits')
+    .update({ is_favorite: isFavorite })
+    .eq('id', outfitId);
+
+  if (error) {
+    console.error('Error toggling favorite:', error);
+    return false;
+  }
+
+  return true;
+}
+
+export async function getFavoriteOutfits(profileId: string): Promise<Outfit[]> {
+  const { data, error } = await supabase
+    .from('outfits')
+    .select('*')
+    .eq('profile_id', profileId)
+    .eq('is_favorite', true)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching favorites:', error);
+    return [];
+  }
+
+  return data || [];
+}
+
+// 2. HISTÓRICO DE ANÁLISES
+export async function saveAnalysisHistory(data: {
+  profile_id: string;
+  analysis_type: 'face' | 'skin' | 'hair';
+  photo_url?: string;
+  result_data: any;
+}): Promise<boolean> {
+  const { error } = await supabase
+    .from('analysis_history')
+    .insert({
+      profile_id: data.profile_id,
+      analysis_type: data.analysis_type,
+      photo_url: data.photo_url,
+      result_data: data.result_data
+    });
+
+  if (error) {
+    console.error('Error saving analysis history:', error);
+    return false;
+  }
+
+  return true;
+}
+
+export async function getAnalysisHistory(profileId: string, type?: string, limit: number = 10) {
+  let query = supabase
+    .from('analysis_history')
+    .select('*')
+    .eq('profile_id', profileId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (type) {
+    query = query.eq('analysis_type', type);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error('Error fetching analysis history:', error);
+    return [];
+  }
+
+  return data || [];
+}
+
+// 3. ESTATÍSTICAS DE USO
+export async function recordOutfitUsage(outfitId: string, profileId: string): Promise<boolean> {
+  const { error } = await supabase
+    .from('outfit_usage')
+    .insert({
+      outfit_id: outfitId,
+      profile_id: profileId
+    });
+
+  if (error) {
+    console.error('Error recording outfit usage:', error);
+    return false;
+  }
+
+  return true;
+}
+
+export async function getOutfitStats(profileId: string) {
+  const { data, error } = await supabase
+    .from('outfit_stats')
+    .select('*')
+    .eq('profile_id', profileId)
+    .order('usage_count', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching outfit stats:', error);
+    return [];
+  }
+
+  return data || [];
+}
+
+export async function getMostUsedOutfits(profileId: string, limit: number = 5) {
+  const { data, error } = await supabase
+    .from('outfit_stats')
+    .select('*')
+    .eq('profile_id', profileId)
+    .order('usage_count', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error('Error fetching most used outfits:', error);
+    return [];
+  }
+
+  return data || [];
+}
+
+// 4. PLANEJADOR SEMANAL
+export async function saveWeeklyPlanner(data: {
+  profile_id: string;
+  outfit_id?: string;
+  date: string; // YYYY-MM-DD
+  day_of_week: number;
+  notes?: string;
+}): Promise<boolean> {
+  const { error } = await supabase
+    .from('weekly_planner')
+    .upsert({
+      profile_id: data.profile_id,
+      outfit_id: data.outfit_id,
+      date: data.date,
+      day_of_week: data.day_of_week,
+      notes: data.notes
+    }, {
+      onConflict: 'profile_id,date'
+    });
+
+  if (error) {
+    console.error('Error saving weekly planner:', error);
+    return false;
+  }
+
+  return true;
+}
+
+export async function getWeeklyPlanner(profileId: string, startDate: string, endDate: string) {
+  const { data, error } = await supabase
+    .from('weekly_planner')
+    .select(`
+      *,
+      outfits (*)
+    `)
+    .eq('profile_id', profileId)
+    .gte('date', startDate)
+    .lte('date', endDate)
+    .order('date', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching weekly planner:', error);
+    return [];
+  }
+
+  return data || [];
+}
+
+export async function deleteWeeklyPlanner(id: string): Promise<boolean> {
+  const { error } = await supabase
+    .from('weekly_planner')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting planner entry:', error);
+    return false;
+  }
+
+  return true;
+}
+
+// 5. LEMBRETES/NOTIFICAÇÕES
+export async function saveReminder(data: {
+  profile_id: string;
+  reminder_type: string;
+  title: string;
+  message: string;
+  scheduled_time?: string;
+  is_active?: boolean;
+}): Promise<boolean> {
+  const { error } = await supabase
+    .from('reminders')
+    .insert(data);
+
+  if (error) {
+    console.error('Error saving reminder:', error);
+    return false;
+  }
+
+  return true;
+}
+
+export async function getReminders(profileId: string, activeOnly: boolean = true) {
+  let query = supabase
+    .from('reminders')
+    .select('*')
+    .eq('profile_id', profileId);
+
+  if (activeOnly) {
+    query = query.eq('is_active', true);
+  }
+
+  const { data, error } = await query.order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching reminders:', error);
+    return [];
+  }
+
+  return data || [];
+}
+
+export async function toggleReminder(id: string, isActive: boolean): Promise<boolean> {
+  const { error } = await supabase
+    .from('reminders')
+    .update({ is_active: isActive })
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error toggling reminder:', error);
+    return false;
+  }
+
+  return true;
+}
+
+export async function deleteReminder(id: string): Promise<boolean> {
+  const { error } = await supabase
+    .from('reminders')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting reminder:', error);
+    return false;
+  }
+
+  return true;
 }

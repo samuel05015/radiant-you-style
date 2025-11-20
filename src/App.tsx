@@ -19,6 +19,9 @@ import MyProgress from "./pages/MyProgress";
 import MySaved from "./pages/MySaved";
 import About from "./pages/About";
 import NotFound from "./pages/NotFound";
+import WeeklyPlanner from "./pages/WeeklyPlanner";
+import AnalysisHistory from "./pages/AnalysisHistory";
+import Reminders from "./pages/Reminders";
 
 const queryClient = new QueryClient();
 
@@ -44,6 +47,9 @@ const App = () => (
           <Route path="/my-progress" element={<MyProgress />} />
           <Route path="/my-saved" element={<MySaved />} />
           <Route path="/about" element={<About />} />
+          <Route path="/weekly-planner" element={<WeeklyPlanner />} />
+          <Route path="/analysis-history" element={<AnalysisHistory />} />
+          <Route path="/reminders" element={<Reminders />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
