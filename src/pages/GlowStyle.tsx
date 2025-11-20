@@ -278,21 +278,38 @@ const GlowStyle = () => {
           
           {categoryToAdd ? (
             <Card className="p-6 text-center shadow-soft border-accent bg-accent/20 backdrop-blur-sm">
-              <p className="text-sm font-medium mb-3">📸 Tire uma foto da peça de:</p>
+              <p className="text-sm font-medium mb-3">📸 Adicione uma foto da peça de:</p>
               <h3 className="text-xl font-bold mb-4">{categoryToAdd}</h3>
-              <input
-                id="file-upload-modal"
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="hidden"
-              />
-              <label htmlFor="file-upload-modal" className="inline-block cursor-pointer">
-                <div className="bg-gradient-accent hover:opacity-90 text-accent-foreground inline-flex items-center justify-center rounded-md text-sm font-medium px-4 py-2 shadow-medium transition-opacity">
-                  <Camera className="w-4 h-4 mr-2" />
-                  Adicionar foto
-                </div>
-              </label>
+              <div className="flex flex-col gap-3">
+                <input
+                  id="file-camera"
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+                <label htmlFor="file-camera" className="cursor-pointer">
+                  <div className="bg-gradient-primary hover:opacity-90 text-white inline-flex items-center justify-center rounded-md text-sm font-medium px-4 py-3 shadow-medium transition-opacity w-full">
+                    <Camera className="w-4 h-4 mr-2" />
+                    Tirar foto
+                  </div>
+                </label>
+                
+                <input
+                  id="file-gallery"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+                <label htmlFor="file-gallery" className="cursor-pointer">
+                  <div className="bg-gradient-accent hover:opacity-90 text-accent-foreground inline-flex items-center justify-center rounded-md text-sm font-medium px-4 py-3 shadow-medium transition-opacity w-full">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Escolher da galeria
+                  </div>
+                </label>
+              </div>
             </Card>
           ) : (
             <>
