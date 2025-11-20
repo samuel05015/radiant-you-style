@@ -15,10 +15,13 @@ const getCategoryEmoji = (category: string) => {
   const emojis: Record<string, string> = {
     "Camisas": "👕",
     "Calças": "👖",
-    "Tênis": "👟",
+    "Sapatos": "👞",
     "Vestidos": "👗",
     "Casacos": "🧥",
-    "Acessórios": "👜"
+    "Acessórios": "👜",
+    "Blusas": "👚",
+    "Shorts/Bermudas": "🩳",
+    "Camisas Sociais": "👔"
   };
   return emojis[category] || "👕";
 };
@@ -38,8 +41,8 @@ const GlowStyle = () => {
 
   const isMale = profile?.gender === "masculino";
   const categories = isMale 
-    ? ["Camisas", "Camisas Sociais", "Calças", "Shorts/Bermudas", "Tênis", "Casacos", "Acessórios"]
-    : ["Camisas", "Camisas Sociais", "Blusas", "Calças", "Shorts/Bermudas", "Tênis", "Vestidos", "Casacos", "Acessórios"];
+    ? ["Camisas", "Camisas Sociais", "Calças", "Shorts/Bermudas", "Sapatos", "Casacos", "Acessórios"]
+    : ["Camisas", "Camisas Sociais", "Blusas", "Calças", "Shorts/Bermudas", "Sapatos", "Vestidos", "Casacos", "Acessórios"];
 
   const ITEMS_PER_PAGE = 12;
 

@@ -275,8 +275,8 @@ export async function generateOutfit(
     console.log(`✅ Usando modelo: gemini-2.5-flash`);
 
     const genderContext = gender === "masculino"
-      ? "para homem, com peças masculinas (camisa, calça, sapato social/tênis, acessórios masculinos)"
-      : "para mulher, com peças femininas (blusa, saia/calça, salto/tênis, acessórios femininos)";
+      ? "para homem, com peças masculinas (camisa, calça, sapato social/tênis/sapatos, acessórios masculinos)"
+      : "para mulher, com peças femininas (blusa, saia/calça, salto/sapatos/tênis, acessórios femininos)";
 
     // Formatar peças do closet para o prompt
     let prompt = '';
@@ -305,12 +305,13 @@ export async function generateOutfit(
         i.category.toLowerCase().includes('sapato') || 
         i.category.toLowerCase().includes('tênis') ||
         i.category.toLowerCase().includes('sandália') ||
-        i.category.toLowerCase().includes('bota')
+        i.category.toLowerCase().includes('bota') ||
+        i.category.toLowerCase().includes('chinelo')
       );
       
       const exampleTop = firstTop ? `"${firstTop.category} ${firstTop.color}"` : '"PRECISA ADICIONAR: Blusa/Camisa"';
       const exampleBottom = firstBottom ? `"${firstBottom.category} ${firstBottom.color}"` : '"PRECISA ADICIONAR: Calça/Saia"';
-      const exampleShoes = firstShoes ? `"${firstShoes.category} ${firstShoes.color}"` : '"PRECISA ADICIONAR: Sapato/Tênis"';
+      const exampleShoes = firstShoes ? `"${firstShoes.category} ${firstShoes.color}"` : '"PRECISA ADICIONAR: Sapatos"';
       
       // Ajustar acessórios, maquiagem e cabelo baseado no gênero
       const accessories = gender === "masculino" 
@@ -630,7 +631,7 @@ function simulateOutfitRecommendation(skinTone: string, occasion: string, gender
     // Buscar sapatos
     const shoes = closetItems.find(i => {
       const cat = (i.category || '').toLowerCase();
-      return cat.includes('sapato') || cat.includes('tênis') || cat.includes('sandália') || 
+      return cat.includes('sapato') || cat.includes('tênis') || cat.includes('sandália') || cat.includes('chinelo') || 
              cat.includes('bota') || cat.includes('chinelo');
     });
 
@@ -652,7 +653,7 @@ function simulateOutfitRecommendation(skinTone: string, occasion: string, gender
       outfit: {
         top: top ? `${top.category} ${top.color}` : "ADICIONE: Blusa/Camisa",
         bottom: bottom ? `${bottom.category} ${bottom.color}` : "ADICIONE: Calça/Saia",
-        shoes: shoes ? `${shoes.category} ${shoes.color}` : "ADICIONE: Sapato/Tênis",
+        shoes: shoes ? `${shoes.category} ${shoes.color}` : "ADICIONE: Sapatos",
         accessories
       },
       makeup,
@@ -750,18 +751,21 @@ export async function analyzeClothingItem(imageData: string): Promise<{category:
     const prompt = `Analise esta peça de roupa e identifique:
 
 1. CATEGORIA: Escolha UMA das opções abaixo (use EXATAMENTE como está escrito):
-   - Camisas (camisetas, camisas, blusas, regatas, moletons)
-   - Calças (calças, shorts)
-   - Tênis (tênis, sapatos, sandálias, botas)
+   - Camisas (camisetas, camisas, regatas, moletons)
+   - Camisas Sociais (camisas sociais, camisas de botão)
+   - Blusas (blusas femininas, tops, bodies)
+   - Calças (calças compridas, leggings)
+   - Shorts/Bermudas (shorts, bermudas)
+   - Sapatos (sapatos, tênis, sandálias, botas, chinelos, saltos)
    - Vestidos (vestidos, macacões)
-   - Casacos (casacos, jaquetas, blazers)
+   - Casacos (casacos, jaquetas, blazers, suéteres)
    - Acessórios (bolsas, cintos, chapéus, óculos, joias)
 
 2. COR: Identifique a cor predominante (ex: azul, preto, branco, vermelho)
 
 3. DESCRIÇÃO: Uma frase curta descrevendo o estilo da peça
 
-IMPORTANTE: Use a categoria EXATAMENTE como está na lista (Camisas, Calças, Tênis, Vestidos, Casacos, Acessórios).
+IMPORTANTE: Use a categoria EXATAMENTE como está na lista (Camisas, Camisas Sociais, Blusas, Calças, Shorts/Bermudas, Sapatos, Vestidos, Casacos, Acessórios).
 
 Responda APENAS com JSON válido:
 {
