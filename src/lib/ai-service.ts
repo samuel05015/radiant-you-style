@@ -44,6 +44,15 @@ export interface HairProductRecommendation {
   tips: string[];
 }
 
+export interface HairAnalysisResult {
+  issues: string[]; // ex: ["frizz", "ressecamento", "queda", "pontas duplas"]
+  severity: {
+    [issue: string]: "leve" | "moderado" | "grave";
+  };
+  confidence: number; // 0-100
+  recommendations: string[]; // texto resumido com recomendações iniciais
+}
+
 export interface HaircutRecommendation {
   cutName: string;
   description: string;
@@ -825,6 +834,112 @@ Responda APENAS com JSON válido:
       description: "Peça adicionada ao closet"
     };
   }
+}
+
+/**
+ * Analisa uma imagem de cabelo e detecta problemas como frizz, ressecamento,
+ * queda, pontas duplas, caspa etc. Retorna lista de issues, severidade,
+ * confiança e recomendações iniciais.
+ */
+export async function analyzeHairImage(imageData: string): Promise<HairAnalysisResult> {
+  if (!genAI) {
+    console.warn("🔄 Usando modo demo (API não configurada) para análise capilar");
+    return simulateHairAnalysis(imageData);
+  }
+
+  try {
+    console.log("💇 Iniciando análise capilar com Google Gemini AI...");
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.5-flash",
+      generationConfig: {
+        temperature: 0.15,
+        topP: 0.8,
+        topK: 20,
+      }
+    });
+
+    const prompt = `Você é um trichologista e hair stylist. Analise a imagem enviada e identifique problemas capilares visíveis (escolha entre: frizz, ressecamento, queda, afinamento, pontas duplas, caspa, oleosidade excessiva, danos por química, quebra). Para cada problema detectado indique severidade: leve, moderado ou grave. Indique também recomendações iniciais de tratamento (3-5 itens) e uma estimativa de confiança (0-100).
+
+Responda APENAS com JSON válido neste formato:
+{
+  "issues": ["frizz","pontas duplas"],
+  "severity": {"frizz":"moderado","pontas duplas":"leve"},
+  "confidence": 85,
+  "recommendations": ["Use máscara hidratante semanalmente","Corte as pontas a cada 3 meses"]
+}`;
+
+    const imagePart = {
+      inlineData: {
+        data: imageData.split(',')[1],
+        mimeType: "image/jpeg",
+      }
+    };
+
+    const result = await model.generateContent([prompt, imagePart]);
+    const response = await result.response;
+    const text = response.text();
+
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      console.log("✅ Análise capilar via Gemini:", parsed);
+      return {
+        issues: parsed.issues || [],
+        severity: parsed.severity || {},
+        confidence: parsed.confidence || 0,
+        recommendations: parsed.recommendations || []
+      };
+    }
+
+    throw new Error("Formato de resposta inválido");
+  } catch (error) {
+    console.error("❌ Erro na análise capilar com Gemini, usando fallback:", error);
+    return simulateHairAnalysis(imageData);
+  }
+}
+
+// Simulação simples de análise capilar para modo demo
+function simulateHairAnalysis(_imageData: string): HairAnalysisResult {
+  const possible = ["frizz", "ressecamento", "queda", "pontas duplas", "caspa", "oleosidade excessiva"];
+  const issues = [] as string[];
+  // escolher 1-3 issues aleatórios
+  const count = 1 + Math.floor(Math.random() * 3);
+  while (issues.length < count) {
+    const pick = possible[Math.floor(Math.random() * possible.length)];
+    if (!issues.includes(pick)) issues.push(pick);
+  }
+
+  const severity: { [k: string]: "leve" | "moderado" | "grave" } = {};
+  issues.forEach((i) => {
+    const r = Math.random();
+    severity[i] = r > 0.8 ? "grave" : r > 0.4 ? "moderado" : "leve";
+  });
+
+  const recommendations = issues.flatMap((i) => {
+    switch (i) {
+      case "frizz":
+        return ["Use leave-in anti-frizz e proteínas reconstrutoras", "Evite calor excessivo", "Máscara anti-frizz semanal"];
+      case "ressecamento":
+        return ["Máscara de hidratação 1-2x por semana", "Óleo nas pontas após secar", "Reduza lavagens quentes"];
+      case "queda":
+        return ["Consulte um profissional para avaliar causas", "Use shampoo estimulação capilar", "Suplementos podem ajudar (procure médico)"];
+      case "pontas duplas":
+        return ["Corte as pontas regularmente", "Use reparador de pontas sem enxágue", "Máscaras nutritivas semanais"];
+      case "caspa":
+        return ["Use shampoo anticaspa com piritionato de zinco ou cetoconazol", "Espalhe bem e deixe agir por 2-3 minutos", "Evite condicionador no couro cabeludo"];
+      case "oleosidade excessiva":
+        return ["Lave com shampoo específico para oleosidade", "Evite aplicar condicionador na raiz", "Use shampoo a seco entre lavagens"];
+      default:
+        return ["Mantenha rotina de cuidados e proteja do calor"];
+    }
+  });
+
+  return {
+    issues,
+    severity,
+    confidence: 70 + Math.floor(Math.random() * 25),
+    recommendations: Array.from(new Set(recommendations)).slice(0, 6)
+  };
 }
 
 /**
