@@ -87,8 +87,8 @@ const GlowStyle = () => {
   const [showAllPieces, setShowAllPieces] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [showSelectionModal, setShowSelectionModal] = useState(false);
-  const [selectedSubtype, setSelectedSubtype] = useState("");
-  const [selectedColor, setSelectedColor] = useState("");
+  const [selectedSubtype, setSelectedSubtype] = useState('');
+  const [selectedColor, setSelectedColor] = useState('');
 
   const isMale = profile?.gender === "masculino";
   const categories = isMale 
@@ -257,28 +257,28 @@ const GlowStyle = () => {
     reader.readAsDataURL(file);
   };
 
-  // Fun\u00e7\u00e3o para salvar pe\u00e7a pr\u00e9-definida (sem foto)
+  // Função para salvar peça pré-definida (sem foto)
   const handleSavePredefinedItem = async () => {
     if (!selectedSubtype || !selectedColor || !categoryToAdd) {
       toast({
-        title: "Sele\u00e7\u00e3o incompleta",
-        description: "Por favor, selecione o tipo e a cor da pe\u00e7a",
-        variant: "destructive",
+        title: 'Seleção incompleta',
+        description: 'Por favor, selecione o tipo e a cor da peça',
+        variant: 'destructive',
       });
       return;
     }
 
     if (!profile?.email) {
       toast({
-        title: "Erro",
-        description: "Por favor, fa\u00e7a login novamente.",
-        variant: "destructive",
+        title: 'Erro',
+        description: 'Por favor, faça login novamente.',
+        variant: 'destructive',
       });
       return;
     }
 
     try {
-      // Buscar profile_id do usu\u00e1rio
+      // Buscar profile_id do usuário
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('id')
@@ -286,7 +286,7 @@ const GlowStyle = () => {
         .single();
 
       if (profileError || !profileData) {
-        throw new Error('Perfil n\u00e3o encontrado');
+        throw new Error('Perfil não encontrado');
       }
 
       // Salvar no banco de dados sem image_url
@@ -662,8 +662,8 @@ const GlowStyle = () => {
                       htmlFor={`subtype-${subtype}`}
                       className={`flex items-center gap-2 p-3 rounded-lg border-2 cursor-pointer transition-all ${
                         selectedSubtype === subtype
-                          ? "border-primary bg-primary/10"
-                          : "border-border hover:border-primary/50"
+                          ? 'border-primary bg-primary/10'
+                          : 'border-border hover:border-primary/50'
                       }`}
                     >
                       <RadioGroupItem value={subtype} id={`subtype-${subtype}`} />
@@ -685,8 +685,8 @@ const GlowStyle = () => {
                       htmlFor={`color-${color}`}
                       className={`flex items-center gap-2 p-3 rounded-lg border-2 cursor-pointer transition-all ${
                         selectedColor === color
-                          ? "border-accent bg-accent/10"
-                          : "border-border hover:border-accent/50"
+                          ? 'border-accent bg-accent/10'
+                          : 'border-border hover:border-accent/50'
                       }`}
                     >
                       <RadioGroupItem value={color} id={`color-${color}`} />
@@ -703,8 +703,8 @@ const GlowStyle = () => {
                 variant="outline"
                 onClick={() => {
                   setShowSelectionModal(false);
-                  setSelectedSubtype("");
-                  setSelectedColor("");
+                  setSelectedSubtype('');
+                  setSelectedColor('');
                 }}
                 className="flex-1"
               >
