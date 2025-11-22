@@ -1,9 +1,12 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Shirt, Plus, Camera, Sparkles, Trash2, Search } from "lucide-react";
+import { Shirt, Plus, Camera, Sparkles, Trash2, Search, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import BottomNav from "@/components/BottomNav";
 import { useUserStore } from "@/lib/user-store";
 import { getClosetItems, saveClosetItem } from "@/lib/database";
@@ -27,6 +30,50 @@ const getCategoryEmoji = (category: string) => {
   return emojis[category] || "👕";
 };
 
+// Estrutura de dados para peças pré-definidas
+const predefinedItems: Record<string, { subtypes: string[], colors: string[] }> = {
+  "Camisas": {
+    subtypes: ["Camiseta básica", "Polo", "Regata", "Babylook", "Oversized", "Cropped", "Manga longa", "Estampada"],
+    colors: ["Branco", "Preto", "Cinza", "Azul", "Vermelho", "Rosa", "Verde", "Amarelo", "Bege", "Marrom"]
+  },
+  "Camisas Sociais": {
+    subtypes: ["Slim fit", "Regular", "Manga curta", "Manga longa", "Linho", "Algodão", "Oxford", "Listrada"],
+    colors: ["Branco", "Azul claro", "Azul marinho", "Rosa", "Cinza", "Preto", "Bege", "Xadrez"]
+  },
+  "Blusas": {
+    subtypes: ["Básica", "Social", "Tomara que caia", "Ciganinha", "Gola alta", "Decote V", "Cropped", "Estampada"],
+    colors: ["Branco", "Preto", "Rosa", "Vermelho", "Azul", "Verde", "Amarelo", "Nude", "Coral", "Lilás"]
+  },
+  "Calças": {
+    subtypes: ["Jeans skinny", "Jeans reta", "Jeans flare", "Alfaiataria", "Legging", "Cargo", "Wide leg", "Social"],
+    colors: ["Azul", "Preto", "Cinza", "Bege", "Branco", "Marrom", "Verde militar", "Cáqui"]
+  },
+  "Shorts/Bermudas": {
+    subtypes: ["Jeans", "Sarja", "Alfaiataria", "Moletom", "Ciclista", "Esportiva", "Praia"],
+    colors: ["Azul", "Preto", "Branco", "Bege", "Cinza", "Verde", "Vermelho", "Rosa"]
+  },
+  "Sapatos": {
+    subtypes: ["Tênis casual", "Tênis esportivo", "Bota", "Coturno", "Social", "Sandália", "Chinelo", "Salto alto", "Salto baixo", "Rasteira"],
+    colors: ["Branco", "Preto", "Marrom", "Bege", "Cinza", "Vermelho", "Rosa", "Azul", "Verde", "Amarelo"]
+  },
+  "Vestidos": {
+    subtypes: ["Midi", "Longo", "Curto", "Tomara que caia", "Alça fina", "Manga", "Festa", "Casual", "Social"],
+    colors: ["Preto", "Branco", "Vermelho", "Rosa", "Azul", "Verde", "Amarelo", "Floral", "Estampado", "Nude"]
+  },
+  "Macacões": {
+    subtypes: ["Jeans", "Social", "Longo", "Curto", "Festa", "Casual", "Jardineira"],
+    colors: ["Azul", "Preto", "Branco", "Bege", "Verde", "Vermelho", "Rosa", "Estampado"]
+  },
+  "Casacos": {
+    subtypes: ["Jaqueta jeans", "Blazer", "Moletom", "Casaco de lã", "Corta-vento", "Couro", "Bomber", "Sobretudo"],
+    colors: ["Preto", "Azul", "Cinza", "Bege", "Marrom", "Verde", "Branco", "Vinho", "Caramelo"]
+  },
+  "Acessórios": {
+    subtypes: ["Bolsa", "Mochila", "Cinto", "Chapéu", "Boné", "Óculos", "Relógio", "Lenço", "Brinco", "Colar"],
+    colors: ["Preto", "Marrom", "Bege", "Branco", "Prata", "Dourado", "Vermelho", "Azul", "Rosa", "Verde"]
+  }
+};
+
 const GlowStyle = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -39,6 +86,9 @@ const GlowStyle = () => {
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showAllPieces, setShowAllPieces] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [showSelectionModal, setShowSelectionModal] = useState(false);
+  const [selectedSubtype, setSelectedSubtype] = useState("");
+  const [selectedColor, setSelectedColor] = useState("");
 
   const isMale = profile?.gender === "masculino";
   const categories = isMale 
@@ -207,6 +257,71 @@ const GlowStyle = () => {
     reader.readAsDataURL(file);
   };
 
+  // Fun\u00e7\u00e3o para salvar pe\u00e7a pr\u00e9-definida (sem foto)
+  const handleSavePredefinedItem = async () => {
+    if (!selectedSubtype || !selectedColor || !categoryToAdd) {
+      toast({
+        title: "Sele\u00e7\u00e3o incompleta",
+        description: "Por favor, selecione o tipo e a cor da pe\u00e7a",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!profile?.email) {
+      toast({
+        title: "Erro",
+        description: "Por favor, fa\u00e7a login novamente.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Buscar profile_id do usu\u00e1rio
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', profile.email)
+        .single();
+
+      if (profileError || !profileData) {
+        throw new Error('Perfil n\u00e3o encontrado');
+      }
+
+      // Salvar no banco de dados sem image_url
+      const newItem = await saveClosetItem({
+        profile_id: profileData.id,
+        image_url: null,
+        category: categoryToAdd,
+        color: selectedColor,
+        description: `${selectedSubtype} ${selectedColor}`,
+      });
+
+      if (newItem) {
+        setPieces([...pieces, newItem]);
+        setShowSelectionModal(false);
+        setCategoryToAdd(null);
+        setSelectedSubtype('');
+        setSelectedColor('');
+        
+        toast({
+          title: 'Peça adicionada!',
+          description: `${selectedSubtype} ${selectedColor} adicionada ao closet.`,
+        });
+      } else {
+        throw new Error('Falha ao salvar item');
+      }
+    } catch (error) {
+      console.error('Erro ao adicionar peça:', error);
+      toast({
+        title: 'Erro ao adicionar peça',
+        description: error instanceof Error ? error.message : 'Tente novamente.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-glow pb-24">
       {/* Header */}
@@ -282,9 +397,20 @@ const GlowStyle = () => {
           
           {categoryToAdd ? (
             <Card className="p-6 text-center shadow-soft border-accent bg-accent/20 backdrop-blur-sm">
-              <p className="text-sm font-medium mb-3">📸 Tire uma foto ou escolha da galeria:</p>
+              <p className="text-sm font-medium mb-3">Como deseja adicionar?</p>
               <h3 className="text-xl font-bold mb-4">{categoryToAdd}</h3>
               <div className="flex flex-col gap-3">
+                {/* Opção: Escolher peça pré-definida */}
+                <Button
+                  onClick={() => setShowSelectionModal(true)}
+                  className="bg-gradient-primary hover:opacity-90 text-white shadow-medium transition-opacity w-full"
+                  size="lg"
+                >
+                  <Shirt className="w-4 h-4 mr-2" />
+                  Selecionar peça pré-definida
+                </Button>
+
+                {/* Opção: Tirar foto */}
                 <input
                   id="file-camera"
                   type="file"
@@ -294,12 +420,13 @@ const GlowStyle = () => {
                   className="hidden"
                 />
                 <label htmlFor="file-camera" className="cursor-pointer">
-                  <div className="bg-gradient-primary hover:opacity-90 text-white inline-flex items-center justify-center rounded-md text-sm font-medium px-4 py-3 shadow-medium transition-opacity w-full">
+                  <div className="bg-gradient-accent hover:opacity-90 text-accent-foreground inline-flex items-center justify-center rounded-md text-sm font-medium px-4 py-3 shadow-medium transition-opacity w-full">
                     <Camera className="w-4 h-4 mr-2" />
                     Tirar foto
                   </div>
                 </label>
                 
+                {/* Opção: Escolher da galeria */}
                 <input
                   id="file-gallery"
                   type="file"
@@ -308,7 +435,7 @@ const GlowStyle = () => {
                   className="hidden"
                 />
                 <label htmlFor="file-gallery" className="cursor-pointer">
-                  <div className="bg-gradient-accent hover:opacity-90 text-accent-foreground inline-flex items-center justify-center rounded-md text-sm font-medium px-4 py-3 shadow-medium transition-opacity w-full">
+                  <div className="border border-border hover:bg-accent/10 inline-flex items-center justify-center rounded-md text-sm font-medium px-4 py-3 transition-colors w-full">
                     <Plus className="w-4 h-4 mr-2" />
                     Escolher da galeria
                   </div>
@@ -505,6 +632,95 @@ const GlowStyle = () => {
           </Card>
         )}
       </div>
+
+      {/* Modal de Seleção de Peça Pré-definida */}
+      <Dialog open={showSelectionModal} onOpenChange={setShowSelectionModal}>
+        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between">
+              <span>Adicionar {categoryToAdd}</span>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowSelectionModal(false)}
+                className="h-6 w-6"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            {/* Seleção de Subtipo */}
+            <div className="space-y-3">
+              <Label className="text-base font-semibold">Tipo de peça</Label>
+              <RadioGroup value={selectedSubtype} onValueChange={setSelectedSubtype}>
+                <div className="grid grid-cols-2 gap-2">
+                  {categoryToAdd && predefinedItems[categoryToAdd]?.subtypes.map((subtype) => (
+                    <Label
+                      key={subtype}
+                      htmlFor={`subtype-${subtype}`}
+                      className={`flex items-center gap-2 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                        selectedSubtype === subtype
+                          ? "border-primary bg-primary/10"
+                          : "border-border hover:border-primary/50"
+                      }`}
+                    >
+                      <RadioGroupItem value={subtype} id={`subtype-${subtype}`} />
+                      <span className="text-sm">{subtype}</span>
+                    </Label>
+                  ))}
+                </div>
+              </RadioGroup>
+            </div>
+
+            {/* Seleção de Cor */}
+            <div className="space-y-3">
+              <Label className="text-base font-semibold">Cor</Label>
+              <RadioGroup value={selectedColor} onValueChange={setSelectedColor}>
+                <div className="grid grid-cols-2 gap-2">
+                  {categoryToAdd && predefinedItems[categoryToAdd]?.colors.map((color) => (
+                    <Label
+                      key={color}
+                      htmlFor={`color-${color}`}
+                      className={`flex items-center gap-2 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                        selectedColor === color
+                          ? "border-accent bg-accent/10"
+                          : "border-border hover:border-accent/50"
+                      }`}
+                    >
+                      <RadioGroupItem value={color} id={`color-${color}`} />
+                      <span className="text-sm">{color}</span>
+                    </Label>
+                  ))}
+                </div>
+              </RadioGroup>
+            </div>
+
+            {/* Botões de Ação */}
+            <div className="flex gap-3 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowSelectionModal(false);
+                  setSelectedSubtype("");
+                  setSelectedColor("");
+                }}
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleSavePredefinedItem}
+                disabled={!selectedSubtype || !selectedColor}
+                className="flex-1 bg-gradient-primary text-white"
+              >
+                Adicionar peça
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
     </div>
