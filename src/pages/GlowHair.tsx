@@ -6,7 +6,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import BottomNav from "@/components/BottomNav";
-import { getHairProductRecommendations, HairProductRecommendation, getHaircutRecommendation, HaircutRecommendation, analyzeFaceImage } from "@/lib/ai-service";
+import { getHairProductRecommendations, HairProductRecommendation, getHaircutRecommendation, HaircutRecommendation, analyzeFaceImage, analyzeHairImage, HairAnalysisResult, getHairRecommendations } from "@/lib/ai-service";
 import { useUserStore } from "@/lib/user-store";
 import { useToast } from "@/hooks/use-toast";
 import { saveHairCheckIn, saveHaircutRecommendation } from "@/lib/database";
@@ -28,8 +28,11 @@ const GlowHair = () => {
   const [isLoadingHaircut, setIsLoadingHaircut] = useState(false);
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [hairAnalysisResult, setHairAnalysisResult] = useState<HairAnalysisResult | null>(null);
+  const [hairImageProductRecommendations, setHairImageProductRecommendations] = useState<HairProductRecommendation | null>(null);
   const [showHaircutResult, setShowHaircutResult] = useState(false);
   const [isSavingHaircut, setIsSavingHaircut] = useState(false);
+  const [currentTab, setCurrentTab] = useState("checkin");
 
   // Formato do rosto do usuário (detectado pela IA no onboarding)
   const userFaceShape = profile?.faceShape || "oval";
@@ -210,12 +213,15 @@ const GlowHair = () => {
       
       // Salvar check-in no Supabase
       try {
-        await saveHairCheckIn({
-          user_email: profile.email,
-          condition: hairCondition,
-          recommendations: result.products.map(p => p.name).join(', '),
-          styling_tips: result.tips?.join(', ') || null,
-        });
+        if (profile.id) {
+          await saveHairCheckIn({
+            profile_id: profile.id,
+            date: new Date().toISOString().split('T')[0],
+            condition: hairCondition,
+            recommendations: result.products.map(p => p.name),
+            styling_tips: result.tips || [],
+          });
+        }
       } catch (dbError) {
         console.error("Erro ao salvar check-in:", dbError);
         // Continua mesmo se falhar salvar no banco
@@ -273,10 +279,16 @@ const GlowHair = () => {
 
           console.log("📸 Foto capturada, iniciando análise...");
 
-          // Analisar rosto com IA
+          // Analisar rosto com IA (sempre necessário)
           const analysis = await analyzeFaceImage(base64String);
-          
-          console.log("✅ Análise completa:", analysis);
+          console.log("✅ Análise facial completa:", analysis);
+
+          // Se estiver na aba "Saúde Capilar", fazer análise do cabelo
+          if (currentTab === "saude") {
+            const hairAnalysis = await analyzeHairImage(base64String);
+            console.log("✅ Análise capilar completa:", hairAnalysis);
+            setHairAnalysisResult(hairAnalysis);
+          }
 
           if (!profile?.email) {
             throw new Error("Email do perfil não encontrado");
@@ -307,27 +319,68 @@ const GlowHair = () => {
             analysisConfidence: analysis.confidence
           });
 
-          console.log("🔍 Buscando recomendação de corte...");
-          console.log("Formato:", analysis.faceShape);
-          console.log("Gênero:", profile?.gender || "feminino");
+          // Se estiver na aba "Saúde Capilar", buscar produtos para os problemas detectados
+          if (currentTab === "saude" && hairAnalysisResult) {
+            // Mapear o primeiro problema detectado para condição entendida pelo sistema
+            const primaryIssue = hairAnalysisResult.issues && hairAnalysisResult.issues.length > 0 ? hairAnalysisResult.issues[0] : null;
+            const conditionMap: { [key: string]: string } = {
+              frizz: 'frizzy',
+              'ressecamento': 'dry',
+              'queda': 'perfect',
+              'pontas duplas': 'dry',
+              'caspa': 'perfect',
+              'oleosidade excessiva': 'oily'
+            };
 
-          // Buscar recomendação de corte
-          const haircutResult = await getHaircutRecommendation(
-            analysis.faceShape,
-            "perfect", // Usar condição padrão para cortes
-            profile?.gender || "feminino"
-          );
-          
-          console.log("✂️ Corte recomendado:", haircutResult);
-          
-          setHaircutRecommendation(haircutResult);
-          setShowHaircutResult(true);
+            const conditionKey = primaryIssue ? (conditionMap[primaryIssue] || 'perfect') : 'perfect';
+
+            // Buscar recomendações de produtos baseadas no problema detectado
+            try {
+              const prodRec = await getHairProductRecommendations(conditionKey, profile?.gender || 'feminino');
+              setHairImageProductRecommendations(prodRec);
+            } catch (prodErr) {
+              console.error('Erro ao obter produtos para análise de imagem:', prodErr);
+              setHairImageProductRecommendations(null);
+            }
+
+            // Buscar recomendações de cuidados (rotina/dicas)
+            try {
+              const careRec = await getHairRecommendations(conditionKey, analysis.faceShape, profile?.gender || 'feminino', undefined);
+              console.log('Dicas de cuidado recebidas:', careRec);
+            } catch (careErr) {
+              console.error('Erro ao obter dicas de cuidado:', careErr);
+            }
+          }
+
+          // Se estiver na aba "Cortes para Você", buscar recomendação de corte
+          if (currentTab === "cortes") {
+            console.log("🔍 Buscando recomendação de corte...");
+            console.log("Formato:", analysis.faceShape);
+            console.log("Gênero:", profile?.gender || "feminino");
+
+            const haircutResult = await getHaircutRecommendation(
+              analysis.faceShape,
+              "perfect",
+              profile?.gender || "feminino"
+            );
+            
+            console.log("✂️ Corte recomendado:", haircutResult);
+            
+            setHaircutRecommendation(haircutResult);
+            setShowHaircutResult(true);
+
+            toast({
+              title: "Análise completa! ✨",
+              description: `Formato: ${analysis.faceShape} • Corte recomendado!`,
+            });
+          } else if (currentTab === "saude") {
+            toast({
+              title: "Análise capilar completa! 🔬",
+              description: `${hairAnalysisResult?.issues.length || 0} problema(s) detectado(s)`,
+            });
+          }
+
           setIsAnalyzing(false);
-
-          toast({
-            title: "Análise completa! ✨",
-            description: `Formato: ${analysis.faceShape} • Corte recomendado!`,
-          });
         } catch (innerError) {
           console.error("❌ Erro na análise:", innerError);
           setIsAnalyzing(false);
@@ -364,6 +417,8 @@ const GlowHair = () => {
     setCapturedPhoto(null);
     setShowHaircutResult(false);
     setHaircutRecommendation(null);
+    setHairAnalysisResult(null);
+    setHairImageProductRecommendations(null);
   };
 
   const handleSaveHaircut = async () => {
@@ -425,10 +480,11 @@ const GlowHair = () => {
       {/* Content */}
       <div className="max-w-md mx-auto px-6 py-6 space-y-6">
         {/* Tabs de navegação */}
-        <Tabs defaultValue="checkin" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-6">
+        <Tabs defaultValue="checkin" className="w-full" onValueChange={setCurrentTab}>
+          <TabsList className="grid w-full grid-cols-3 mb-6">
             <TabsTrigger value="checkin">Check-in Diário</TabsTrigger>
             <TabsTrigger value="cortes">Cortes para Você</TabsTrigger>
+            <TabsTrigger value="saude">Saúde Capilar</TabsTrigger>
           </TabsList>
 
           {/* Tab: Check-in Diário */}
@@ -612,14 +668,13 @@ const GlowHair = () => {
               ref={fileInputRef}
               type="file"
               accept="image/*"
-              capture="user"
               className="hidden"
               onChange={handleFileChange}
             />
 
             {!showHaircutResult ? (
               <>
-                {/* Captura de foto */}
+                {/* Captura de foto para análise de rosto */}
                 <Card className="p-6 shadow-medium border-primary/20 bg-gradient-to-br from-primary/5 to-secondary/5 backdrop-blur-sm">
                   <div className="space-y-4">
                     <div className="text-center space-y-2">
@@ -659,20 +714,20 @@ const GlowHair = () => {
                       {isAnalyzing ? (
                         <>
                           <Loader2 className="w-5 h-5 animate-spin" />
-                          Analisando...
+                          Analisando formato do rosto...
                         </>
                       ) : (
                         <>
                           <Camera className="w-5 h-5" />
-                          {capturedPhoto ? "Tirar nova foto" : "Tirar foto"}
+                          {capturedPhoto ? "Escolher outra foto" : "Escolher foto"}
                         </>
                       )}
                     </Button>
 
                     <div className="text-xs text-muted-foreground text-center space-y-1">
-                      <p>✨ A foto será analisada por IA</p>
-                      <p>📸 A foto anterior será substituída</p>
-                      <p>🔒 Seus dados estão seguros</p>
+                      <p>📸 Tire foto ou escolha da galeria</p>
+                      <p>✨ Análise de formato de rosto</p>
+                      <p>✂️ Recomendação de cortes personalizados</p>
                     </div>
                   </div>
                 </Card>
@@ -682,7 +737,7 @@ const GlowHair = () => {
                     <div className="flex items-center gap-3">
                       <Sparkles className="w-10 h-10 text-primary" />
                       <div>
-                        <h4 className="font-semibold">Última análise</h4>
+                        <h4 className="font-semibold">Última análise de rosto</h4>
                         <p className="text-sm text-muted-foreground">
                           Formato: {profile.faceShape} • Tom: {profile.skinTone}
                         </p>
@@ -790,6 +845,182 @@ const GlowHair = () => {
               </>
             )}
 
+          </TabsContent>
+
+          {/* Tab: Saúde Capilar */}
+          <TabsContent value="saude" className="space-y-6">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+
+            <Card className="p-6 shadow-medium border-accent/20 bg-gradient-to-br from-accent/5 to-secondary/5 backdrop-blur-sm">
+              <div className="space-y-4">
+                <div className="text-center space-y-2">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-r from-accent to-secondary flex items-center justify-center mx-auto shadow-soft">
+                    <Camera className="w-8 h-8 text-accent-foreground" />
+                  </div>
+                  <h2 className="text-xl font-semibold">Analise a saúde do seu cabelo</h2>
+                  <p className="text-sm text-muted-foreground">
+                    A IA vai detectar problemas capilares e recomendar produtos e tratamentos
+                  </p>
+                </div>
+
+                {capturedPhoto && (
+                  <div className="relative">
+                    <img
+                      src={capturedPhoto}
+                      alt="Foto do cabelo"
+                      className="w-full h-64 object-cover rounded-lg"
+                    />
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="absolute top-2 right-2"
+                      onClick={handleDeletePhoto}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                )}
+
+                {hairAnalysisResult && (
+                  <Card className="p-4 shadow-soft border-border/30 bg-card/60">
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center">
+                          <Sparkles className="w-5 h-5 text-secondary-foreground" />
+                        </div>
+                        <div>
+                          <h4 className="font-semibold">Análise do Cabelo</h4>
+                          <p className="text-xs text-muted-foreground">Confiança: {hairAnalysisResult.confidence}%</p>
+                        </div>
+                      </div>
+
+                      <div>
+                        <h5 className="font-medium text-sm mb-2">Problemas detectados</h5>
+                        <div className="flex flex-wrap gap-2">
+                          {hairAnalysisResult.issues.map((issue, idx) => (
+                            <span 
+                              key={idx} 
+                              className={`px-3 py-1 rounded-full text-sm ${
+                                hairAnalysisResult.severity[issue] === 'grave' 
+                                  ? 'bg-red-500/20 text-red-700 dark:text-red-300 border border-red-500/30'
+                                  : hairAnalysisResult.severity[issue] === 'moderado'
+                                  ? 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-300 border border-yellow-500/30'
+                                  : 'bg-green-500/20 text-green-700 dark:text-green-300 border border-green-500/30'
+                              }`}
+                            >
+                              {issue} • {hairAnalysisResult.severity[issue]}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      {hairAnalysisResult.recommendations && hairAnalysisResult.recommendations.length > 0 && (
+                        <div>
+                          <h5 className="font-medium text-sm mb-2">Recomendações rápidas</h5>
+                          <ul className="space-y-1 text-sm">
+                            {hairAnalysisResult.recommendations.map((rec, i) => (
+                              <li key={i} className="flex items-start gap-2">
+                                <span className="text-accent mt-0.5">•</span>
+                                <span>{rec}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </Card>
+                )}
+
+                {hairImageProductRecommendations && (
+                  <Card className="p-5 shadow-glow border-secondary/30 bg-gradient-to-br from-secondary/10 to-accent/10">
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-r from-secondary to-accent flex items-center justify-center shadow-medium">
+                          <ShoppingCart className="w-6 h-6 text-secondary-foreground" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="text-lg font-semibold">Produtos Recomendados</h3>
+                          <p className="text-xs text-muted-foreground">Baseados na análise da sua foto</p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        {hairImageProductRecommendations.products.map((product, index) => (
+                          <Card key={index} className="overflow-hidden border-border/50 hover:border-secondary/50 transition-all">
+                            <div className="p-4 space-y-3">
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <h4 className="font-semibold text-base">{product.name}</h4>
+                                  <p className="text-sm text-muted-foreground">{product.brand}</p>
+                                </div>
+                                <span className="text-lg font-semibold text-secondary">{product.price}</span>
+                              </div>
+                              <p className="text-sm">{product.description}</p>
+                              <Button 
+                                variant="outline" 
+                                className="w-full gap-2"
+                                onClick={() => window.open(product.buyUrl, '_blank')}
+                              >
+                                <ShoppingCart className="w-4 h-4" />
+                                Onde comprar
+                                <ExternalLink className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          </Card>
+                        ))}
+                      </div>
+
+                      {hairImageProductRecommendations.tips && hairImageProductRecommendations.tips.length > 0 && (
+                        <Card className="p-4 bg-accent/5 border-accent/20">
+                          <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center flex-shrink-0">
+                              <Sparkles className="w-5 h-5 text-accent-foreground" />
+                            </div>
+                            <div className="space-y-2 flex-1">
+                              <h4 className="font-semibold">Dicas de Uso</h4>
+                              {hairImageProductRecommendations.tips.map((tip, index) => (
+                                <p key={index} className="text-sm">• {tip}</p>
+                              ))}
+                            </div>
+                          </div>
+                        </Card>
+                      )}
+                    </div>
+                  </Card>
+                )}
+
+                <Button
+                  onClick={handlePhotoCapture}
+                  disabled={isAnalyzing}
+                  className="w-full gap-2"
+                  size="lg"
+                >
+                  {isAnalyzing ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Analisando saúde capilar...
+                    </>
+                  ) : (
+                    <>
+                      <Camera className="w-5 h-5" />
+                      {capturedPhoto ? "Escolher outra foto" : "Escolher foto do cabelo"}
+                    </>
+                  )}
+                </Button>
+
+                <div className="text-xs text-muted-foreground text-center space-y-1">
+                  <p>📸 Tire foto ou escolha da galeria</p>
+                  <p>🔬 Análise de problemas capilares</p>
+                  <p>💊 Recomendação de produtos específicos</p>
+                </div>
+              </div>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
